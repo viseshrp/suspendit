@@ -160,7 +160,7 @@ test("popup search, light/dark appearance, and responsive layout", async ({}, in
 	await createTab("Weekend reading");
 	await evaluate(worker, async (ids) => {
 		const groupId = await chrome.tabs.group({ tabIds: ids as [number, ...number[]] });
-		await chrome.tabGroups.update(groupId, { title: "Research", color: "green" });
+		await chrome.tabGroups.update(groupId, { title: "Research", color: "yellow" });
 	}, [first, second]);
 	const page = await popup();
 	async function search(query: string) {

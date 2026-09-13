@@ -13,14 +13,14 @@ function buildSvg(size = 128) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 128 128" fill="none">
   <defs>
     <linearGradient id="night" x1="12" y1="8" x2="112" y2="124" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#233F48"/><stop offset="1" stop-color="#10262F"/>
+      <stop stop-color="#3F3727"/><stop offset="1" stop-color="#221E17"/>
     </linearGradient>
     <linearGradient id="moon" x1="46" y1="43" x2="84" y2="96" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#D7FFE8"/><stop offset="1" stop-color="#77DAB0"/>
+      <stop stop-color="#FFF1AD"/><stop offset="1" stop-color="#F2C53D"/>
     </linearGradient>
   </defs>
   <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#night)"/>
-  <path d="M29 39V32C29 27.6 32.6 24 37 24H53C57 24 59 27 62 31H91C95.4 31 99 34.6 99 39" stroke="#91BAAE" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M29 39V32C29 27.6 32.6 24 37 24H53C57 24 59 27 62 31H91C95.4 31 99 34.6 99 39" stroke="#D2BC76" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M76 47C72 59 76 73 88 79C82 90 68 97 55 91C42 86 36 71 42 58C48 45 63 40 76 47Z" fill="url(#moon)"/>
   </svg>`;
 }

@@ -1,8 +1,9 @@
 :root {
-  --md-sys-color-primary: #23664e;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #d9f0e4;
-  --md-sys-color-on-primary-container: #163e30;
+  --md-sys-color-primary: #765700;
+  --md-sys-color-on-primary: #302609;
+  --sys-color-action-background: #f3cc47;
+  --md-sys-color-primary-container: #fff0ad;
+  --md-sys-color-on-primary-container: #574400;
   --md-sys-color-secondary: #575e71;
   --md-sys-color-on-secondary: #ffffff;
   --md-sys-color-secondary-container: #dbe2f9;
@@ -15,14 +16,14 @@
   --md-sys-color-on-error: #ffffff;
   --md-sys-color-error-container: #ffdad6;
   --md-sys-color-on-error-container: #410002;
-  --md-sys-color-background: #f6f8f5;
-  --md-sys-color-on-background: #20372e;
-  --md-sys-color-surface: #f6f8f5;
-  --md-sys-color-on-surface: #20372e;
-  --md-sys-color-surface-variant: #e1e2ec;
-  --md-sys-color-on-surface-variant: #52665a;
-  --md-sys-color-outline: #7f9188;
-  --md-sys-color-outline-rgb: 116, 119, 127;
+  --md-sys-color-background: #fcfaf3;
+  --md-sys-color-on-background: #302c20;
+  --md-sys-color-surface: #fcfaf3;
+  --md-sys-color-on-surface: #302c20;
+  --md-sys-color-surface-variant: #eee8d4;
+  --md-sys-color-on-surface-variant: #69614c;
+  --md-sys-color-outline: #9b9073;
+  --md-sys-color-outline-rgb: 155, 144, 115;
   --md-sys-elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.3);
   --md-sys-elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.3);
   --md-sys-typescale-header-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -36,10 +37,11 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --md-sys-color-error: #ffb4ab;
-    --md-sys-color-primary: #a7e0c3;
-    --md-sys-color-on-primary: #123c2b;
-    --md-sys-color-primary-container: #254e3c;
-    --md-sys-color-on-primary-container: #d9f0e4;
+    --md-sys-color-primary: #f6d767;
+    --sys-color-action-background: #f6d767;
+    --md-sys-color-on-primary: #302609;
+    --md-sys-color-primary-container: #44391b;
+    --md-sys-color-on-primary-container: #fff0ad;
     --md-sys-color-secondary: #bfc6dc;
     --md-sys-color-on-secondary: #293041;
     --md-sys-color-secondary-container: #3f4759;
@@ -48,14 +50,14 @@
     --md-sys-color-on-tertiary: #402843;
     --md-sys-color-tertiary-container: #583e5b;
     --md-sys-color-on-tertiary-container: #fbd7fc;
-    --md-sys-color-background: #15241f;
-    --md-sys-color-surface: #1d2d26;
-    --md-sys-color-surface-variant: #2d4036;
-    --md-sys-color-on-background: #f2f3f5;
+    --md-sys-color-background: #211e17;
+    --md-sys-color-surface: #2d291e;
+    --md-sys-color-surface-variant: #3b3525;
+    --md-sys-color-on-background: #f6f1e1;
     --md-sys-color-on-surface: #ffffff;
-    --md-sys-color-on-surface-variant: #b7c8bd;
-    --md-sys-color-outline: #82988a;
-    --md-sys-color-outline-rgb: 142, 146, 151;
+    --md-sys-color-on-surface-variant: #cec5ab;
+    --md-sys-color-outline: #a49772;
+    --md-sys-color-outline-rgb: 164, 151, 114;
     --sys-color-item-hover: rgba(255, 255, 255, 0.06);
     --md-sys-elevation-1: 0 4px 6px rgba(0, 0, 0, 0.4);
     --md-sys-elevation-2: 0 8px 12px rgba(0, 0, 0, 0.5);
