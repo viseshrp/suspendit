@@ -14,6 +14,7 @@
 			<span class="native-label">ON DEMAND</span>
 		</header>
 		<main>
+			<div class="controls">
 			<section class="overview" aria-label="Tab overview">
 				<div class="overview-top"><p id="counts">Reading your tabs…</p><span class="sleep-mark" aria-hidden="true">☾</span></div>
 				<button id="suspend-window" class="primary" type="button" disabled>Suspend this window</button>
@@ -24,8 +25,11 @@
 				<label class="sr-only" for="search">Find a tab or group</label>
 				<input id="search" type="search" placeholder="Find a tab or group…" autocomplete="off" spellcheck="false" />
 			</div>
-			<div id="windows" class="windows" aria-label="Windows and tabs"></div>
-			<p id="empty" class="empty" hidden>No matching tabs.</p>
+			</div>
+			<div id="tab-list" class="tab-list" role="region" aria-label="Windows and tabs" tabindex="0">
+				<div id="windows" class="windows"></div>
+				<p id="empty" class="empty" hidden>No matching tabs.</p>
+			</div>
 		</main>
 		<footer>
 			<p id="status" role="status" aria-live="polite">Select a suspended tab to load it again.</p>
@@ -42,7 +46,10 @@
 		</template>
 		<template id="group-template">
 			<section class="group">
-				<div class="group-heading"><span class="group-dot" aria-hidden="true"></span><span class="group-name"></span><span class="group-count"></span><button type="button" class="scope-button" data-action="group">Suspend</button></div>
+				<div class="group-heading">
+					<button type="button" class="group-toggle" data-action="toggle-group"><span class="chevron" aria-hidden="true">›</span><span class="group-dot" aria-hidden="true"></span><span class="group-name"></span><span class="group-count"></span></button>
+					<button type="button" class="scope-button" data-action="group">Suspend</button>
+				</div>
 				<div class="group-tabs"></div>
 			</section>
 		</template>

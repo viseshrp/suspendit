@@ -175,6 +175,21 @@ test("popup search, light/dark appearance, and responsive layout", async ({}, in
 	await search("nothing matches");
 	expect(await evaluate(page, () => (document.querySelector("#empty") as HTMLElement).hidden)).toBe(false);
 	await search("");
+	const scrolling = await evaluate(page, () => {
+		const list = document.getElementById("tab-list") as HTMLElement;
+		const controls = document.querySelector(".controls") as HTMLElement;
+		const before = controls.getBoundingClientRect().top;
+		list.scrollTop = list.scrollHeight;
+		return { top: before, after: controls.getBoundingClientRect().top, scrollTop: list.scrollTop,
+			rootHeight: document.documentElement.scrollHeight, viewportHeight: innerHeight };
+	});
+	expect(scrolling.scrollTop).toBeGreaterThan(0);
+	expect(scrolling.after).toBe(scrolling.top);
+	expect(scrolling.rootHeight).toBeLessThanOrEqual(scrolling.viewportHeight);
+	await evaluate(page, () => { (document.getElementById("tab-list") as HTMLElement).scrollTop = 0; });
+	await click('[aria-label="Collapse group Research"]');
+	expect(await evaluate(page, () => (document.querySelector(".group-tabs") as HTMLElement).hidden)).toBe(true);
+	await click('[aria-label="Expand group Research"]');
 	for (const colorScheme of ["light", "dark"] as const) {
 		await screenshot(page, info.outputPath(`popup-${colorScheme}.png`), colorScheme);
 		const dimensions = await evaluate(page, () => ({

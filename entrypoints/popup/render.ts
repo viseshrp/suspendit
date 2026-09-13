@@ -42,6 +42,7 @@ export function renderWindows(
 	currentWindowId: number,
 	query: string,
 	collapsed: Set<number>,
+	collapsedGroups: Set<number>,
 	busy: boolean,
 ) {
 	const container = document.getElementById("windows") as HTMLDivElement;
@@ -67,7 +68,7 @@ export function renderWindows(
 		const toggle = section.querySelector(".window-toggle") as HTMLButtonElement;
 		toggle.dataset.id = String(windowId);
 		toggle.id = `toggle-${windowId}`;
-		const expanded = Boolean(query) || !collapsed.has(windowId);
+		const expanded = !collapsed.has(windowId);
 		toggle.setAttribute("aria-expanded", String(expanded));
 		toggle.setAttribute("aria-controls", `window-tabs-${windowId}`);
 		const suspend = section.querySelector(".scope-button") as HTMLButtonElement;
@@ -96,6 +97,13 @@ export function renderWindows(
 				(groupSection.querySelector(".group-name") as HTMLElement).textContent = title;
 				const members = windowTabs.filter((member) => member.groupId === group.id);
 				(groupSection.querySelector(".group-count") as HTMLElement).textContent = String(members.length);
+				const toggle = groupSection.querySelector(".group-toggle") as HTMLButtonElement;
+				toggle.id = `toggle-group-${group.id}`;
+				toggle.dataset.id = String(group.id);
+				const expanded = !collapsedGroups.has(group.id);
+				toggle.setAttribute("aria-expanded", String(expanded));
+				toggle.setAttribute("aria-controls", `group-tabs-${group.id}`);
+				toggle.setAttribute("aria-label", `${expanded ? "Collapse" : "Expand"} group ${title}`);
 				const button = groupSection.querySelector(".scope-button") as HTMLButtonElement;
 				button.dataset.id = String(group.id);
 				button.id = `group-${group.id}`;
@@ -103,6 +111,8 @@ export function renderWindows(
 				button.setAttribute("aria-label", `Suspend group ${title}`);
 				button.disabled = busy || !members.some((member) => !skipReason(member, true));
 				groupBody = groupSection.querySelector(".group-tabs") as HTMLElement;
+				groupBody.id = `group-tabs-${group.id}`;
+				groupBody.hidden = !expanded;
 				renderedGroups.set(group.id, groupBody);
 				body.append(groupSection);
 			}

@@ -56,6 +56,33 @@ it("sends individual, group, window, and all-window suspension requests", async 
 	}
 });
 
+it("collapses popup groups and restores their state after searching", async () => {
+	await start();
+	await click("toggle-group-7");
+	expect(button("toggle-group-7").getAttribute("aria-expanded")).toBe("false");
+	expect(document.getElementById("group-tabs-7")?.hidden).toBe(true);
+	state.mock.tabs.onUpdated.emit();
+	await vi.runAllTimersAsync();
+	expect(document.getElementById("group-tabs-7")?.hidden).toBe(true);
+	search("research");
+	expect(document.getElementById("group-tabs-7")?.hidden).toBe(false);
+	await click("toggle-group-7");
+	expect(document.getElementById("group-tabs-7")?.hidden).toBe(true);
+	search("");
+	expect(document.getElementById("group-tabs-7")?.hidden).toBe(true);
+	await click("toggle-group-7");
+	expect(document.getElementById("group-tabs-7")?.hidden).toBe(false);
+	search("Tab 4");
+	expect(button("toggle-2").getAttribute("aria-expanded")).toBe("true");
+	await click("toggle-2");
+	expect(button("toggle-2").getAttribute("aria-expanded")).toBe("false");
+	await click("toggle-2");
+	expect(button("toggle-2").getAttribute("aria-expanded")).toBe("true");
+	expect(state.groups[0].collapsed).toBe(false);
+	window.dispatchEvent(new Event("resize"));
+	expect(document.documentElement.style.height).toBe(`${window.innerHeight}px`);
+});
+
 it("prevents duplicate requests while an operation is running and refreshes afterwards", async () => {
 	await start();
 	let finish: (value: unknown) => void = () => {};

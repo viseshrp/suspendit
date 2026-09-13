@@ -14,6 +14,9 @@ let loaded = false;
 let refreshVersion = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const collapsed = new Set<number>();
+const collapsedGroups = new Set<number>();
+const searchCollapsed = new Set<number>();
+const searchCollapsedGroups = new Set<number>();
 
 function showStatus(message: string, error = false) {
 	status.textContent = message;
@@ -26,7 +29,9 @@ function render() {
 	(document.getElementById("counts") as HTMLElement).textContent = `${tabs.length} ${tabs.length === 1 ? "tab" : "tabs"} · ${suspended} suspended`;
 	suspendWindow.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && !skipReason(tab, true));
 	suspendAll.disabled = busy || !tabs.some((tab) => !skipReason(tab, true));
-	renderWindows(tabs, groups, currentWindowId, search.value.trim().toLowerCase(), collapsed, busy);
+	const query = search.value.trim().toLowerCase();
+	renderWindows(tabs, groups, currentWindowId, query,
+		query ? searchCollapsed : collapsed, query ? searchCollapsedGroups : collapsedGroups, busy);
 	if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
 }
 
@@ -93,7 +98,11 @@ async function openTab(id: number) {
 
 suspendWindow.addEventListener("click", () => { void suspend({ type: "suspend", scope: "window", id: currentWindowId }); });
 suspendAll.addEventListener("click", () => { void suspend({ type: "suspend", scope: "all" }); });
-search.addEventListener("input", render);
+search.addEventListener("input", () => {
+	searchCollapsed.clear();
+	searchCollapsedGroups.clear();
+	render();
+});
 // Reuse nufftabs' single delegated click handler for all rows and scope actions.
 document.getElementById("windows")?.addEventListener("click", (event) => {
 	const button = (event.target as Element).closest<HTMLButtonElement>("button[data-action]");
@@ -101,8 +110,12 @@ document.getElementById("windows")?.addEventListener("click", (event) => {
 	const id = Number(button.dataset.id);
 	if (!Number.isInteger(id) || id < 0) return;
 	const action = button.dataset.action;
-	if (action === "toggle") {
-		if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+	if (action === "toggle" || action === "toggle-group") {
+		const searching = Boolean(search.value.trim());
+		const state = action === "toggle"
+			? searching ? searchCollapsed : collapsed
+			: searching ? searchCollapsedGroups : collapsedGroups;
+		if (state.has(id)) state.delete(id); else state.add(id);
 		render();
 	} else if (action === "open") {
 		void openTab(id);
@@ -116,4 +129,8 @@ for (const event of [chrome.tabs.onCreated, chrome.tabs.onRemoved, chrome.tabs.o
 	chrome.tabs.onReplaced, chrome.tabGroups.onCreated, chrome.tabGroups.onUpdated, chrome.tabGroups.onRemoved]) {
 	event.addListener(scheduleRefresh);
 }
+// Chrome can cap the toolbar popup below its preferred height on a small screen.
+window.addEventListener("resize", () => {
+	document.documentElement.style.height = `${window.innerHeight}px`;
+});
 void refresh();
