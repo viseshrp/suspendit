@@ -39,6 +39,32 @@ Profile deletion retries briefly while Chrome subprocesses finish their final wr
 The audio test briefly plays a quiet tone to verify
 Chrome's real audible-tab state.
 
+## Memory release
+
+`tests/e2e/memory.spec.ts` verifies memory release separately from Chrome's `discarded` flag.
+A loopback page waits for the test to request an allocation, then holds 128 MiB of random bytes.
+The test identifies the renderer by its measured RSS increase, suspends the page through the
+production popup, and requires that renderer to release at least 64 MiB within 15 seconds.
+The page remains detached from DevTools throughout suspension. Measurements use only process
+IDs returned by the isolated test browser, never the user's Chrome processes.
+
+The check runs on macOS and Linux using `ps`; Windows skips this measurement. `memory.json`
+records the Chrome version, process snapshots, and the identified renderer's before/after RSS.
+It is included in the existing `playwright-artifacts` CI download. RSS is a process measurement,
+not an exact per-tab allocation or a count of memory saved system-wide.
+
+In a local Chromium 153 run on September 13, 2026, the fixture renderer grew by 134.2 MiB after
+allocation and fell from 255.4 MiB to 114.5 MiB after suspension. This is evidence for the test
+fixture; it does not establish the memory state of a user's installed Chrome profile.
+
+```sh
+pnpm build
+pnpm exec playwright test memory.spec.ts
+```
+
+See [memory troubleshooting](troubleshooting.md) for Chrome's cached tab memory display and
+how to distinguish it from live renderer memory.
+
 ## Large tab sessions
 
 `tests/e2e/performance.spec.ts` creates real 500- and 1,000-tab sessions in a temporary profile.

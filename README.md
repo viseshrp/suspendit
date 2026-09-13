@@ -76,7 +76,7 @@ Run `pnpm icons:generate` to regenerate PNGs from the icon design.
 The ZIP is limited to 100 KiB, and all shipped JavaScript together is limited to 32 KiB.
 
 See [testing](docs/TESTING.md), [architecture](docs/architecture.md), [privacy](docs/PRIVACY_POLICY.md),
-and [reused foundations](docs/reuse.md).
+[memory troubleshooting](docs/troubleshooting.md), and [reused foundations](docs/reuse.md).
 
 ## CI and releases
 
