@@ -4,6 +4,25 @@ SuspendIt uses `chrome.tabs.discard()` and only counts success when Chrome retur
 `discarded: true`. The popup reads that same Chrome property when showing **Suspended**.
 Chrome owns the page's unloading, memory release, and reload on activation.
 
+## Live memory can stay high after native discard
+
+This is reproducible in an isolated browser, not just a possible stale display. A test page
+holding 128 MiB stopped its periodic network activity after native discard, while its
+renderer's resident memory (RSS) stayed around 256 MiB for the 15-second observation window.
+We observed this with Chrome for Testing 152.0.7977.82 and 153.0.8010.12, including direct
+`chrome.tabs.discard()` calls. Other runs returned more than 140 MiB. Memory reclamation
+was not consistent enough to promise an immediate reduction.
+
+Chrome's [discard implementation](https://github.com/chromium/chromium/blob/152.0.7977.83/chrome/browser/resource_coordinator/utils.cc#L33)
+first attempts to stop the renderer, subject to other frames, workers, and process-lifetime
+constraints. Its [fallback](https://github.com/chromium/chromium/blob/152.0.7977.83/third_party/blink/renderer/bindings/core/v8/script_controller.cc#L235)
+discards the document within a surviving renderer. An unloaded page and a renderer returning
+memory to the OS are separate observations.
+
+SuspendIt cannot force that release through the native Tabs API. The investigation has not
+produced an extension-side fix within the native-only requirement. The test results also do
+not establish the cause of any particular tab in a user's installed profile.
+
 ## Chrome still shows the old memory number
 
 The memory value in Chrome's tab strip or hovercard is not a live memory measurement. In
@@ -40,5 +59,7 @@ process ID, and memory reading for investigation. An unchanged browser-wide tota
 value alone is insufficient to conclude that the page stayed loaded.
 
 The extension does not have a native API to refresh Chrome's hovercard memory cache or
-force a shared renderer to exit. The [memory regression test](TESTING.md#memory-release)
-measures actual renderer RSS after native suspension in an isolated browser.
+force a shared renderer to exit. The [memory diagnostic](TESTING.md#memory-release)
+records actual renderer RSS separately from its lifecycle assertions. Its optional strict
+mode fails when the renderer does not release 64 MiB within the observation window, preserving
+a reproducible check for the retained-memory behavior.

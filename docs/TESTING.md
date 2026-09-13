@@ -41,26 +41,47 @@ Chrome's real audible-tab state.
 
 ## Memory release
 
-`tests/e2e/memory.spec.ts` verifies memory release separately from Chrome's `discarded` flag.
+`tests/e2e/memory.spec.ts` measures memory separately from Chrome's `discarded` flag.
 A loopback page waits for the test to request an allocation, then holds 128 MiB of random bytes.
-The test identifies the renderer by its measured RSS increase, suspends the page through the
-production popup, and requires that renderer to release at least 64 MiB within 15 seconds.
+The test identifies the renderer by its measured RSS increase, excluding processes started
+after the baseline. It compares the production popup with a direct native-API control that
+never opens the popup, each with a same-site and a separate-site awake tab.
 The page remains detached from DevTools throughout suspension. Measurements use only process
 IDs returned by the isolated test browser, never the user's Chrome processes.
 
+CI requires Chrome's native discarded state, stopped page heartbeats, no spontaneous reload,
+an unaffected awake neighbor, and a fresh document with `document.wasDiscarded` on activation.
+Renderer RSS is sampled for up to 15 seconds, or at least 3 seconds when it falls by over
+64 MiB. Retained memory is recorded explicitly rather than inferred from a passing lifecycle
+check. Native discard sometimes leaves RSS unchanged in Chrome 152 and 153, so an RSS deadline
+is not a default CI gate. This is an unresolved browser-memory limitation, not a memory fix.
+
 The check runs on macOS and Linux using `ps`; Windows skips this measurement. `memory.json`
-records the Chrome version, process snapshots, and the identified renderer's before/after RSS.
+records the Chrome version, action route, site relationship, timed process/heartbeat samples,
+and the identified renderer's before/after RSS. It is written before lifecycle and strict-memory
+assertions, so a retained-memory failure keeps its evidence.
 It is included in the existing `playwright-artifacts` CI download. RSS is a process measurement,
 not an exact per-tab allocation or a count of memory saved system-wide.
 
-In a local Chromium 153 run on September 13, 2026, the fixture renderer grew by 134.2 MiB after
-allocation and fell from 255.4 MiB to 114.5 MiB after suspension. This is evidence for the test
-fixture; it does not establish the memory state of a user's installed Chrome profile.
+On September 13, 2026, local runs included both a drop from 255.4 MiB to 114.5 MiB in Chromium
+153 and unchanged RSS around 256 MiB in Chrome 152/153. The latter also occurred with a direct
+native API call. These fixture observations do not establish the memory state of a user's
+installed Chrome profile.
 
 ```sh
 pnpm build
 pnpm exec playwright test memory.spec.ts
 ```
+
+To reproduce the retained-memory failure, enable the strict 64 MiB release assertion:
+
+```sh
+SUSPENDIT_REQUIRE_MEMORY_RELEASE=1 pnpm exec playwright test memory.spec.ts
+```
+
+`SUSPENDIT_TEST_CHROME=/absolute/path/to/chrome` selects another Chrome for Testing executable;
+the helper still creates and deletes an isolated profile. The Chrome 152 comparison used
+152.0.7977.82; the installed browser that prompted this investigation was 152.0.7977.83.
 
 See [memory troubleshooting](troubleshooting.md) for Chrome's cached tab memory display and
 how to distinguish it from live renderer memory.

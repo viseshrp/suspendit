@@ -2,11 +2,13 @@
 
 [![CI](https://github.com/viseshrp/suspendit/actions/workflows/ci.yml/badge.svg)](https://github.com/viseshrp/suspendit/actions/workflows/ci.yml)
 
-Free up memory by suspending individual tabs, Chrome tab groups, a window, or every window.
+Suspend individual tabs, Chrome tab groups, a window, or every window.
 An English-only popup, a page context menu, and no runtime dependencies.
 
 Suspension uses [`chrome.tabs.discard()`](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-discard).
 Chrome keeps the tab in the tab strip and reloads the original page when you select it.
+Chrome controls when renderer memory returns to the operating system. A suspended count
+does not measure RAM saved; see [memory troubleshooting](docs/troubleshooting.md).
 
 <p>
   <img src="docs/screenshots/popup-light.png" width="310" alt="SuspendIt popup in the light theme" />
