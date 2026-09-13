@@ -55,6 +55,13 @@ export async function target(matches: (entry: Target) => boolean | Promise<boole
 	return found as Target;
 }
 
+// Browser-level diagnostics are confined to the process launched by this helper.
+export async function browserCommand<T>(method: string): Promise<T> {
+	const response = await fetch(`http://127.0.0.1:${port}/json/version`);
+	const { webSocketDebuggerUrl } = await response.json() as Target;
+	return command<T>({ type: "browser", url: "", webSocketDebuggerUrl }, method);
+}
+
 // Keep DevTools detached from web pages while Chrome discards their renderers.
 // Attaching Playwright to every page crashes Chromium during native discard.
 export function command<T>(entry: Target, method: string, params = {}, setup: { method: string; params: object }[] = []): Promise<T> {
