@@ -132,12 +132,28 @@ it("keeps untrusted titles as text and explains disabled actions", async () => {
 		tab(3, { id: undefined, url: undefined, title: undefined, discarded: true }),
 	);
 	await start();
-	expect(document.querySelector(".tab-row img")).toBeNull();
+	expect(document.querySelector(".tab-title img")).toBeNull();
 	expect(document.querySelector(".tab-title")?.textContent).toContain("<img");
 	expect(button("suspend-1").disabled).toBe(true);
 	expect(button("suspend-1").title).toContain("Keep another tab awake");
 	expect(button("suspend-2").title).toBe("Already suspended");
 	expect(button("suspend-all").disabled).toBe(true);
+});
+
+it("uses Chrome's favicon service and falls back when an icon cannot load", async () => {
+	state.tabs[0].url = "https://example.com/a?x=1&y=two#section";
+	state.tabs[1].url = "chrome://settings/";
+	await start();
+	const icon = document.querySelector('[data-tab-id="1"] img') as HTMLImageElement;
+	const url = new URL(icon.src);
+	expect(`${url.protocol}//${url.host}${url.pathname}`).toBe("chrome-extension://test-id/_favicon/");
+	expect(url.searchParams.get("pageUrl")).toBe(state.tabs[0].url);
+	expect(url.searchParams.get("size")).toBe("32");
+	expect(icon.getAttribute("loading")).toBe("lazy");
+	expect(icon.hidden).toBe(false);
+	icon.dispatchEvent(new Event("error"));
+	expect(icon.hidden).toBe(true);
+	expect((document.querySelector('[data-tab-id="2"] img') as HTMLImageElement).hidden).toBe(true);
 });
 
 it("renders untitled groups and audio/pinned states with keyboard focus preserved", async () => {

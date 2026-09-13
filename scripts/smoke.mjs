@@ -7,7 +7,7 @@ const manifest = JSON.parse(readFileSync(resolve(output, 'manifest.json'), 'utf8
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.name, 'SuspendIt');
 assert.equal(manifest.action.default_popup, 'popup.html');
-assert.deepEqual([...manifest.permissions].sort(), ['contextMenus', 'tabGroups', 'tabs']);
+assert.deepEqual([...manifest.permissions].sort(), ['contextMenus', 'favicon', 'tabGroups', 'tabs']);
 for (const field of ['host_permissions', 'content_scripts', 'options_page', 'options_ui', 'chrome_url_overrides', 'default_locale', 'web_accessible_resources']) {
   assert.ok(!manifest[field], `Unexpected manifest field: ${field}`);
 }

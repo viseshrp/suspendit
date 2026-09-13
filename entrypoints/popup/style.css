@@ -48,6 +48,9 @@ main { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: 
 .tab-row { display: flex; align-items: center; gap: 9px; min-height: 48px; padding: 5px 4px 5px 7px; border-radius: 8px; }
 .tab-row:hover, .tab-row:focus-within { background: var(--sys-color-item-hover); }
 .tab-mark { flex-shrink: 0; display: grid; place-items: center; width: 25px; height: 28px; font-size: 11px; font-weight: 650; color: var(--md-sys-color-primary); background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent); border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent); border-radius: 7px; }
+.tab-favicon { object-fit: contain; }
+.tab-favicon:not([hidden]) + .favicon-fallback { display: none; }
+.tab-row[data-suspended="true"] .tab-favicon { opacity: .65; }
 .tab-link { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 0; text-align: left; border: 0; background: transparent; }
 .tab-title { max-width: 100%; font-size: 12px; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tab-meta { max-width: 100%; font-size: 10px; color: var(--md-sys-color-on-surface-variant); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 1px; }

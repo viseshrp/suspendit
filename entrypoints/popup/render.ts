@@ -12,11 +12,19 @@ function tabRow(tab: chrome.tabs.Tab, allTabs: chrome.tabs.Tab[], busy: boolean)
 	row.dataset.suspended = String(tab.discarded);
 	const title = tab.title || tab.url || "Untitled tab";
 	let host = "Browser page";
+	const icon = row.querySelector(".tab-favicon") as HTMLImageElement;
+	icon.addEventListener("error", () => { icon.hidden = true; });
 	try {
 		const url = new URL(tab.url ?? "");
 		host = url.protocol === "file:" ? "Local file" : url.hostname || "Browser page";
+		if (url.protocol === "http:" || url.protocol === "https:") {
+			const favicon = new URL(chrome.runtime.getURL("_favicon/"));
+			favicon.searchParams.set("pageUrl", url.href);
+			favicon.searchParams.set("size", "32");
+			icon.src = favicon.href;
+			icon.hidden = false;
+		}
 	} catch { /* A new tab may not have a URL yet. */ }
-	(row.querySelector(".tab-mark") as HTMLElement).textContent = tab.discarded ? "☾" : host.charAt(0).toUpperCase();
 	(row.querySelector(".tab-title") as HTMLElement).textContent = title;
 	const state = tab.discarded ? "Suspended" : tab.active ? "Active" : tab.audible ? "Audio" : tab.pinned ? "Pinned" : "";
 	(row.querySelector(".tab-meta") as HTMLElement).textContent = `${host}${state ? ` · ${state}` : ""}`;

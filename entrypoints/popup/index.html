@@ -55,7 +55,10 @@
 		</template>
 		<template id="tab-template">
 			<div class="tab-row">
-				<span class="tab-mark" aria-hidden="true"></span>
+				<span class="tab-mark" aria-hidden="true">
+					<img class="tab-favicon" width="16" height="16" alt="" loading="lazy" decoding="async" hidden />
+					<svg class="favicon-fallback" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18C7 16 7 8 12 3Z"/></svg>
+				</span>
 				<button type="button" class="tab-link" data-action="open"><span class="tab-title"></span><span class="tab-meta"></span></button>
 				<button type="button" class="tab-suspend" data-action="tab"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.2A8.5 8.5 0 0 1 10.8 3.5 8.5 8.5 0 1 0 20.5 13.2Z"/></svg></button>
 			</div>

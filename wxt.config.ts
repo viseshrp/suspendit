@@ -14,7 +14,7 @@ export default defineConfig({
 		description: "Free up memory. Suspend tabs, groups, or windows using Chrome’s native tab discarding.",
 		minimum_chrome_version: "120",
 		homepage_url: "https://github.com/viseshrp/suspendit",
-		permissions: ["tabs", "tabGroups", "contextMenus"],
+		permissions: ["tabs", "tabGroups", "contextMenus", "favicon"],
 		action: { default_title: "SuspendIt", default_icon: icons },
 		icons,
 	},

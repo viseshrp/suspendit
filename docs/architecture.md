@@ -2,8 +2,9 @@
 
 WXT builds two entrypoints: `popup.html` and an event-driven Manifest V3 service worker.
 The popup reads tab/window/group metadata and renders native DOM elements cloned from HTML
-templates. Titles and URLs are assigned with `textContent`; favicons and fonts never make
-external requests. Search and collapsed-window state live only while the popup is open.
+templates. Titles and URLs are assigned with `textContent`. Site icons use Chrome's built-in
+`_favicon` endpoint, with lazy loading and a local fallback. Search and collapsed-window/group
+state live only while the popup is open.
 
 The popup sends a validated scope request to the worker, which re-queries tabs, applies
 eligibility rules, and invokes `chrome.tabs.discard(tabId)`. Up to four discards run at once.
@@ -26,6 +27,7 @@ scripts, background polling, persistent settings, network services, or custom re
 | `tabs` | Read titles and URLs for the popup |
 | `tabGroups` | Read native group names and colors |
 | `contextMenus` | Add the on-demand page action |
+| `favicon` | Display site icons through Chrome's favicon service |
 
 The extension requests no host permissions. Browser-level metadata and navigation APIs provide
 the other required operations.

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createServer, type Server } from "node:http";
+import { readFileSync } from "node:fs";
 import { close, evaluate, launch, screenshot, target } from "../helpers/browser";
 
 let server: Server;
@@ -11,10 +12,16 @@ let windowId: number;
 const originalUrls = new Map<number, string>();
 
 test.beforeAll(async () => {
+	const icon = readFileSync("public/icon/32.png");
 	server = createServer((req, res) => {
+		if (req.url === "/favicon.png") {
+			res.setHeader("Content-Type", "image/png");
+			res.end(icon);
+			return;
+		}
 		const title = decodeURIComponent((req.url ?? "/Today").slice(1)).replace(/[<>&"]/g, "");
 		res.setHeader("Content-Type", "text/html");
-		res.end(`<!doctype html><html lang="en"><title>${title}</title><h1>${title}</h1><p>Native suspension test.</p>${title === "Audio" ? "<script>window.audio = new AudioContext(); const oscillator = audio.createOscillator(); const gain = audio.createGain(); gain.gain.value = 0.002; oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(); audio.resume();</script>" : ""}</html>`);
+		res.end(`<!doctype html><html lang="en"><title>${title}</title><link rel="icon" href="/favicon.png" type="image/png"><h1>${title}</h1><p>Native suspension test.</p>${title === "Audio" ? "<script>window.audio = new AudioContext(); const oscillator = audio.createOscillator(); const gain = audio.createGain(); gain.gain.value = 0.002; oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(); audio.resume();</script>" : ""}</html>`);
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 	const address = server.address();
@@ -112,6 +119,18 @@ test("a single-tab window explains why its active tab cannot be suspended", asyn
 		const button = document.querySelector<HTMLButtonElement>('[aria-label="Suspend Today"]');
 		return { disabled: button?.disabled, title: button?.title, allDisabled: document.querySelector<HTMLButtonElement>("#suspend-all")?.disabled };
 	})).toEqual({ disabled: true, title: "Keep another tab awake in this window", allDisabled: true });
+});
+
+test("site icons load through Chrome's favicon endpoint", async () => {
+	await expect.poll(async () => (await getTab(activeId)).favIconUrl).toBe(`${base}/favicon.png`);
+	const page = await popup();
+	await expect.poll(() => evaluate(page, () => {
+		const icon = document.querySelector<HTMLImageElement>(".tab-favicon");
+		return Boolean(icon && !icon.hidden && icon.complete && icon.naturalWidth > 0);
+	})).toBe(true);
+	const src = await evaluate(page, () => (document.querySelector(".tab-favicon") as HTMLImageElement).src);
+	expect(src).toMatch(/^chrome-extension:\/\/[^/]+\/_favicon\//);
+	expect(new URL(src).searchParams.get("pageUrl")).toBe(`${base}/Today`);
 });
 
 test("group and current-window actions preserve active, pinned, and audio tabs", async () => {
