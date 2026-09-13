@@ -7,6 +7,7 @@ export type SuspendResult = {
 	skipped: number;
 	failed: number;
 	errors: string[];
+	tabId?: number;
 };
 
 export function isSuspendRequest(value: unknown): value is SuspendRequest {

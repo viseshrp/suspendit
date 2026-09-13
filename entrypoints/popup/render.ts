@@ -12,7 +12,10 @@ function tabRow(tab: chrome.tabs.Tab, allTabs: chrome.tabs.Tab[], busy: boolean)
 	row.dataset.suspended = String(tab.discarded);
 	const title = tab.title || tab.url || "Untitled tab";
 	let host = "Browser page";
-	try { host = new URL(tab.url ?? "").hostname || "Local file"; } catch { /* A new tab may not have a URL yet. */ }
+	try {
+		const url = new URL(tab.url ?? "");
+		host = url.protocol === "file:" ? "Local file" : url.hostname || "Browser page";
+	} catch { /* A new tab may not have a URL yet. */ }
 	(row.querySelector(".tab-mark") as HTMLElement).textContent = tab.discarded ? "☾" : host.charAt(0).toUpperCase();
 	(row.querySelector(".tab-title") as HTMLElement).textContent = title;
 	const state = tab.discarded ? "Suspended" : tab.active ? "Active" : tab.audible ? "Audio" : tab.pinned ? "Pinned" : "";

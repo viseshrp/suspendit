@@ -35,6 +35,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --md-sys-color-error: #ffb4ab;
     --md-sys-color-primary: #a7e0c3;
     --md-sys-color-on-primary: #123c2b;
     --md-sys-color-primary-container: #254e3c;
@@ -90,4 +91,3 @@ body {
   background: var(--md-sys-color-outline);
   border-radius: 4px;
 }
-

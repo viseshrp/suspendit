@@ -47,5 +47,12 @@ it("accepts valid popup requests and ignores other origins or invalid messages",
 	expect(mock.runtime.onMessage.emit(request, { ...sender, url: "https://example.com" }, respond)).toEqual([undefined]);
 	expect(mock.runtime.onMessage.emit(null, sender, respond)).toEqual([undefined]);
 	expect(mock.runtime.onMessage.emit(request, sender, respond)).toEqual([true]);
-	await vi.waitFor(() => expect(respond).toHaveBeenCalledWith({ suspended: 1, skipped: 0, failed: 0, errors: [] }));
+	await vi.waitFor(() => expect(respond).toHaveBeenCalledWith({ suspended: 1, skipped: 0, failed: 0, errors: [], tabId: 1 }));
+});
+
+it("uses the tab ID Chrome returns when native discard replaces the tab's contents", async () => {
+	const { mock } = createMockChrome([tab(1)]);
+	mock.tabs.discard.mockResolvedValueOnce(tab(20, { discarded: true }));
+	await suspendFromMenu({ menuItemId: "suspend-tab", editable: false }, tab(1));
+	expect(mock.action.setBadgeText).toHaveBeenCalledWith({ tabId: 20, text: "" });
 });

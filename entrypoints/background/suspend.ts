@@ -32,6 +32,7 @@ export async function suspendTabs(request: SuspendRequest): Promise<SuspendResul
 				// Chrome alone unloads the page and restores it on activation.
 				const discarded = await chrome.tabs.discard(tab.id as number);
 				if (!discarded?.discarded) throw new Error("Chrome could not suspend this tab.");
+				if (!bulk) result.tabId = discarded.id;
 				result.suspended++;
 			} catch (error) {
 				result.failed++;

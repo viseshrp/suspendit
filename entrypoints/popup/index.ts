@@ -23,7 +23,7 @@ function showStatus(message: string, error = false) {
 function render() {
 	const focusId = document.activeElement?.id;
 	const suspended = tabs.filter((tab) => tab.discarded).length;
-	(document.getElementById("counts") as HTMLElement).textContent = `${tabs.length} tabs · ${suspended} suspended`;
+	(document.getElementById("counts") as HTMLElement).textContent = `${tabs.length} ${tabs.length === 1 ? "tab" : "tabs"} · ${suspended} suspended`;
 	suspendWindow.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && !skipReason(tab, true));
 	suspendAll.disabled = busy || !tabs.some((tab) => !skipReason(tab, true));
 	renderWindows(tabs, groups, currentWindowId, search.value.trim().toLowerCase(), collapsed, busy);

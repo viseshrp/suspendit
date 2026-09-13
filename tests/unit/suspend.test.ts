@@ -9,7 +9,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("native suspension", () => {
 	it("discards the original tab without replacing its URL, id, or group", async () => {
 		const { mock, tabs } = createMockChrome([tab(1, { pinned: true, audible: true, groupId: 7 })]);
-		expect(await suspendTabs({ type: "suspend", scope: "tab", id: 1 })).toEqual({ suspended: 1, skipped: 0, failed: 0, errors: [] });
+		expect(await suspendTabs({ type: "suspend", scope: "tab", id: 1 })).toEqual({ suspended: 1, skipped: 0, failed: 0, errors: [], tabId: 1 });
 		expect(mock.tabs.discard).toHaveBeenCalledWith(1);
 		expect(mock.tabs.update).not.toHaveBeenCalled();
 		expect(tabs[0]).toMatchObject({ id: 1, url: "https://example.com/1", groupId: 7, discarded: true });

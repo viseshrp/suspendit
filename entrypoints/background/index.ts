@@ -19,9 +19,10 @@ export async function createContextMenu() {
 export async function suspendFromMenu(info: chrome.contextMenus.OnClickData, tab?: chrome.tabs.Tab) {
 	if (info.menuItemId !== MENU_ID || tab?.id === undefined) return;
 	const result = await suspendTabs({ type: "suspend", scope: "tab", id: tab.id });
-	await chrome.action.setBadgeText({ tabId: tab.id, text: result.failed ? "!" : "" });
+	const tabId = result.tabId ?? tab.id;
+	await chrome.action.setBadgeText({ tabId, text: result.failed ? "!" : "" });
 	await chrome.action.setTitle({
-		tabId: tab.id,
+		tabId,
 		title: result.failed ? resultMessage(result) : "SuspendIt",
 	});
 }
