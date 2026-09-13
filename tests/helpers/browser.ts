@@ -39,7 +39,8 @@ export async function close(outputPath: string) {
 		browser.kill();
 		await exited;
 	}
-	if (profile) await rm(profile, { recursive: true, force: true });
+	// Chrome subprocesses can briefly finish profile writes after the parent exits.
+	if (profile) await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
 
 export async function target(matches: (entry: Target) => boolean | Promise<boolean>) {
