@@ -9,7 +9,7 @@ and [nufftabs](https://github.com/viseshrp/nufftabs/tree/8187d19f2276cadcad60254
 | TabMD | pnpm scripts and lockfile, WXT manifest/build conventions, TypeScript config, Biome config, ignore rules, coverage configuration |
 | TabMD | Playwright SVG-to-PNG icon generation, release tag parser, CI and tag/draft/published-release workflows |
 | nufftabs | Plain DOM event delegation, system theme tokens, error-message and bounded-concurrency functions |
-| Both repositories | Playwright persistent Chromium context and extension service-worker discovery |
+| Both repositories | Playwright test layout and isolated Chromium profiles; targeted DevTools connections accommodate native discard |
 
 Build and test dependencies stay in development. The shipped popup uses native DOM APIs and CSS.
 The suspension feature calls `chrome.tabs.discard()` directly. The reference repositories' storage,

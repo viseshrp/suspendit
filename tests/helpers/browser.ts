@@ -19,7 +19,7 @@ export async function launch(url: string) {
 		"--no-first-run", "--no-default-browser-check", "--no-sandbox", "--window-size=1280,900",
 		"--use-mock-keychain", "--password-store=basic", "--disable-sync",
 		"--autoplay-policy=no-user-gesture-required",
-		...(process.env.PW_HEADLESS === "false" ? [] : ["--headless"]),
+		"--headless",
 		`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, url,
 	], { stdio: ["ignore", "ignore", "pipe"] });
 	browser.stderr?.on("data", (chunk) => { log = (log + chunk).slice(-20_000); });

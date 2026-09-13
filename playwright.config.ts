@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: [['list']],
   outputDir: 'test-results',
   use: {
-    headless: process.env.PW_HEADLESS !== 'false',
+    headless: true,
     // Discard destroys renderer surfaces; capture only the popup explicitly.
     trace: 'off',
     screenshot: 'off',
