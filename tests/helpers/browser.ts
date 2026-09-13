@@ -14,7 +14,7 @@ export async function launch(url: string) {
 	profile = await mkdtemp(join(tmpdir(), "suspendit-e2e-"));
 	const extension = resolve(".output/chrome-mv3");
 	log = "";
-	browser = spawn(chromium.executablePath(), [
+	browser = spawn(process.env.SUSPENDIT_TEST_CHROME || chromium.executablePath(), [
 		`--user-data-dir=${profile}`, "--remote-debugging-port=0", "--enable-automation",
 		"--no-first-run", "--no-default-browser-check", "--no-sandbox", "--window-size=1280,900",
 		"--use-mock-keychain", "--password-store=basic", "--disable-sync",
