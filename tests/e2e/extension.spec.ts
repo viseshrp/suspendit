@@ -177,7 +177,14 @@ test("popup search, light/dark appearance, and responsive layout", async ({}, in
 	await search("");
 	for (const colorScheme of ["light", "dark"] as const) {
 		await screenshot(page, info.outputPath(`popup-${colorScheme}.png`), colorScheme);
-		const dimensions = await evaluate(page, () => ({ content: document.documentElement.scrollWidth, viewport: innerWidth }));
+		const dimensions = await evaluate(page, () => ({
+			content: document.documentElement.scrollWidth, viewport: innerWidth,
+			mainHeight: document.querySelector("main")?.getBoundingClientRect().height ?? 0,
+			footerBottom: document.querySelector("footer")?.getBoundingClientRect().bottom ?? 0,
+			height: innerHeight,
+		}));
 		expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport);
+		expect(dimensions.mainHeight).toBeGreaterThan(200);
+		expect(dimensions.footerBottom).toBeLessThanOrEqual(dimensions.height);
 	}
 });

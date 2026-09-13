@@ -94,7 +94,10 @@ export async function evaluate<T, A = undefined>(entry: Target, fn: (arg: A) => 
 
 export async function screenshot(entry: Target, path: string, colorScheme?: "light" | "dark") {
 	// Media overrides belong to a DevTools session; keep it open through capture.
-	const setup = colorScheme ? [{ method: "Emulation.setEmulatedMedia", params: { features: [{ name: "prefers-color-scheme", value: colorScheme }] } }] : [];
+	const setup = colorScheme ? [
+		{ method: "Emulation.setEmulatedMedia", params: { features: [{ name: "prefers-color-scheme", value: colorScheme }] } },
+		{ method: "Runtime.evaluate", params: { expression: "new Promise(resolve => setTimeout(resolve, 250))", awaitPromise: true } },
+	] : [];
 	const { data } = await command<{ data: string }>(entry, "Page.captureScreenshot", { format: "png" }, setup);
 	await writeFile(path, Buffer.from(data, "base64"));
 }
