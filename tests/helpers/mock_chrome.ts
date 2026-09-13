@@ -3,7 +3,7 @@ import { vi } from "vitest";
 // Keep the reference repositories' small in-memory Chrome API test convention.
 export function tab(id: number, overrides: Partial<chrome.tabs.Tab> = {}): chrome.tabs.Tab {
 	return { id, index: id, windowId: 1, groupId: -1, active: false, pinned: false,
-		discarded: false, frozen: false, autoDiscardable: true, highlighted: false, incognito: false,
+		discarded: false, frozen: false, autoDiscardable: true, highlighted: false, selected: false, incognito: false,
 		url: `https://example.com/${id}`, title: `Tab ${id}`, status: "complete", ...overrides };
 }
 
