@@ -26,9 +26,14 @@ Requires Chrome 120 or newer.
 ## Use
 
 - Click the moon beside a tab to suspend it. Search by page title, URL, or group name.
+- Collapse windows or groups with their chevrons. Search expands matching sections; clearing it restores your collapsed sections.
 - Use a group's or window's **Suspend** button, or **Suspend all windows**. These actions apply to the entire group/window even while searching.
 - Right-click a web page and choose **Suspend this tab**.
 - Select a suspended tab, or click its title in the popup, to load the original page again.
+
+Search and bulk controls stay visible while the tab list scrolls. Site icons come from Chrome.
+Live updates retain existing rows, focus, and scroll position. Browser tests cover 500 and
+1,000 tabs; see the [performance checks](docs/TESTING.md#large-tab-sessions).
 
 Bulk actions keep active tabs in every window, pinned tabs, and audio-playing tabs awake.
 An individual action can suspend a pinned or audio-playing tab. For an active tab, SuspendIt
@@ -78,6 +83,7 @@ and [reused foundations](docs/reuse.md).
 CI checks types/lint, unit/integration coverage, the actual extension in Chromium, manifest
 permissions, and package size. Successful `main` builds upload the extension ZIP. Coverage
 reports are always available as CI artifacts; Codecov upload runs if `CODECOV_TOKEN` is configured.
+Browser artifacts include light/dark screenshots, logs, and the 500/1,000-tab benchmark report.
 
 Push a tag such as `v1.0.0` to create a draft GitHub release. Publishing that draft runs the
 checks again, derives the manifest version from the tag, and attaches the installation ZIP.
