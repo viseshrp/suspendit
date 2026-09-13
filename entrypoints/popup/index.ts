@@ -13,6 +13,9 @@ let busy = false;
 let loaded = false;
 let refreshVersion = 0;
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+let renderTimer: ReturnType<typeof setTimeout> | undefined;
+let tabRevision = 0;
+const tabUpdates = new Map<number, { tab: chrome.tabs.Tab; revision: number }>();
 const collapsed = new Set<number>();
 const collapsedGroups = new Set<number>();
 const searchCollapsed = new Set<number>();
@@ -37,6 +40,7 @@ function render() {
 
 async function refresh() {
 	const version = ++refreshVersion;
+	const revision = tabRevision;
 	try {
 		const [nextTabs, nextGroups, current] = await Promise.all([
 			chrome.tabs.query({ windowType: "normal" }),
@@ -44,7 +48,12 @@ async function refresh() {
 			chrome.windows.getCurrent(),
 		]);
 		if (version !== refreshVersion) return;
-		tabs = nextTabs;
+		// Keep updates that arrived while Chrome was answering this query.
+		tabs = nextTabs.map((tab) => {
+			const update = tab.id === undefined ? undefined : tabUpdates.get(tab.id);
+			return update && update.revision > revision ? update.tab : tab;
+		});
+		tabUpdates.clear();
 		groups = nextGroups;
 		currentWindowId = current.id ?? -1;
 		if (!loaded) {
@@ -62,8 +71,27 @@ async function refresh() {
 
 function scheduleRefresh() {
 	if (busy) return;
-	clearTimeout(refreshTimer);
-	refreshTimer = setTimeout(() => { void refresh(); }, 75);
+	++refreshVersion;
+	clearTimeout(renderTimer);
+	renderTimer = undefined;
+	if (refreshTimer !== undefined) return;
+	refreshTimer = setTimeout(() => { refreshTimer = undefined; void refresh(); }, 75);
+}
+
+function updateTab(id: number, _change: chrome.tabs.OnUpdatedInfo, next?: chrome.tabs.Tab) {
+	if (busy) return;
+	if (!next) { scheduleRefresh(); return; }
+	tabUpdates.set(id, { tab: next, revision: ++tabRevision });
+	const index = tabs.findIndex((tab) => tab.id === id);
+	const previous = tabs[index];
+	if (!previous || previous.windowId !== next.windowId || previous.groupId !== next.groupId || previous.index !== next.index) {
+		scheduleRefresh();
+		return;
+	}
+	tabs[index] = next;
+	if (renderTimer === undefined) {
+		renderTimer = setTimeout(() => { renderTimer = undefined; render(); }, 16);
+	}
 }
 
 async function suspend(request: SuspendRequest) {
@@ -124,7 +152,8 @@ document.getElementById("windows")?.addEventListener("click", (event) => {
 	}
 });
 
-for (const event of [chrome.tabs.onCreated, chrome.tabs.onRemoved, chrome.tabs.onUpdated,
+chrome.tabs.onUpdated.addListener(updateTab);
+for (const event of [chrome.tabs.onCreated, chrome.tabs.onRemoved,
 	chrome.tabs.onActivated, chrome.tabs.onMoved, chrome.tabs.onAttached, chrome.tabs.onDetached,
 	chrome.tabs.onReplaced, chrome.tabGroups.onCreated, chrome.tabGroups.onUpdated, chrome.tabGroups.onRemoved]) {
 	event.addListener(scheduleRefresh);

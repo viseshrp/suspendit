@@ -185,3 +185,108 @@ it("handles an unavailable browser query and subsequent refresh", async () => {
 	row.click();
 	expect(state.mock.runtime.sendMessage).not.toHaveBeenCalled();
 });
+
+it("updates tab details in place without querying every tab or losing focus", async () => {
+	await start();
+	const row = document.querySelector('[data-tab-id="2"]');
+	const neighbor = button("open-3");
+	const icon = row?.querySelector("img") as HTMLImageElement;
+	icon.dispatchEvent(new Event("error"));
+	neighbor.focus();
+	state.mock.tabs.query.mockClear();
+	for (let index = 0; index < 20; index++) {
+		state.tabs[1].title = `Updated ${index}`;
+		state.tabs[1].audible = true;
+		state.mock.tabs.onUpdated.emit(2, { title: state.tabs[1].title }, { ...state.tabs[1] });
+	}
+	await vi.runAllTimersAsync();
+	expect(row?.querySelector(".tab-title")?.textContent).toBe("Updated 19");
+	expect(row?.querySelector(".tab-meta")?.textContent).toContain("Audio");
+	expect(document.querySelector('[data-tab-id="2"]')).toBe(row);
+	expect(button("open-3")).toBe(neighbor);
+	expect(document.activeElement).toBe(neighbor);
+	expect(row?.querySelector("img")).toBe(icon);
+	expect(icon.hidden).toBe(true);
+	expect(state.mock.tabs.query).not.toHaveBeenCalled();
+	state.tabs[1].url = "https://other.example/page";
+	state.tabs[1].favIconUrl = "https://other.example/icon.png";
+	state.mock.tabs.onUpdated.emit(2, { url: state.tabs[1].url }, { ...state.tabs[1] });
+	await vi.runAllTimersAsync();
+	expect(new URL(icon.src).searchParams.get("pageUrl")).toBe(state.tabs[1].url);
+	expect(icon.hidden).toBe(false);
+});
+
+it("reuses rows across filtering, reordering, group changes, and window moves", async () => {
+	await start();
+	const original = button("open-2");
+	search("Tab 4");
+	search("");
+	expect(button("open-2")).toBe(original);
+	state.tabs[1].index = 0;
+	state.mock.tabs.onMoved.emit(2);
+	await vi.runAllTimersAsync();
+	expect(document.querySelector(".tab-row")?.getAttribute("data-tab-id")).toBe("2");
+	expect(button("open-2")).toBe(original);
+	state.tabs[1].groupId = -1;
+	state.tabs[1].windowId = 2;
+	state.mock.tabs.onUpdated.emit(2, { groupId: -1 }, { ...state.tabs[1] });
+	state.mock.tabs.onAttached.emit(2);
+	await vi.runAllTimersAsync();
+	expect(original.closest(".window")?.getAttribute("data-window-id")).toBe("2");
+	expect(original.closest(".group")).toBeNull();
+	expect(document.querySelector('[data-group-id="7"] .group-count')?.textContent).toBe("1");
+	state.tabs.splice(1, 2);
+	state.groups.length = 0;
+	state.mock.tabs.onRemoved.emit(2);
+	state.mock.tabGroups.onRemoved.emit();
+	await vi.runAllTimersAsync();
+	expect(document.getElementById("open-2")).toBeNull();
+	expect(document.querySelector(".group")).toBeNull();
+	state.tabs.push(tab(2, { title: "New tab" }));
+	state.mock.tabs.onUpdated.emit(2, {}, { ...state.tabs.at(-1) });
+	await vi.runAllTimersAsync();
+	expect(button("open-2")).not.toBe(original);
+	expect(button("open-2").textContent).toContain("New tab");
+	state.tabs.splice(0, state.tabs.length, tab(9, { windowId: 3 }));
+	state.mock.tabs.onRemoved.emit();
+	await vi.runAllTimersAsync();
+	expect(document.querySelectorAll(".window")).toHaveLength(1);
+	expect(document.querySelector(".window")?.getAttribute("data-window-id")).toBe("3");
+});
+
+it("keeps newer tab metadata when an older browser query finishes", async () => {
+	await start();
+	const snapshot = state.tabs.map((tab) => ({ ...tab }));
+	let finish: (tabs: chrome.tabs.Tab[]) => void = () => {};
+	state.mock.tabs.query.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+	state.mock.tabGroups.onUpdated.emit();
+	await vi.advanceTimersByTimeAsync(75);
+	state.tabs[1].title = "Latest title";
+	state.mock.tabs.onUpdated.emit(2, { title: "Latest title" }, { ...state.tabs[1] });
+	finish(snapshot);
+	await vi.runAllTimersAsync();
+	expect(button("open-2").textContent).toContain("Latest title");
+});
+
+it("ignores obsolete browser replies and errors after a structural change", async () => {
+	await start();
+	let finish: (tabs: chrome.tabs.Tab[]) => void = () => {};
+	state.mock.tabs.query.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+	state.mock.tabGroups.onUpdated.emit();
+	await vi.advanceTimersByTimeAsync(75);
+	state.tabs[1].title = "Current title";
+	state.mock.tabs.onUpdated.emit(2, {}, { ...state.tabs[1] });
+	state.mock.tabs.onRemoved.emit();
+	finish([]);
+	await vi.runAllTimersAsync();
+	expect(button("open-2").textContent).toContain("Current title");
+	let fail: (error: Error) => void = () => {};
+	state.mock.tabs.query.mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+	state.mock.tabGroups.onUpdated.emit();
+	await vi.advanceTimersByTimeAsync(75);
+	state.mock.tabs.onCreated.emit();
+	fail(new Error("Obsolete error"));
+	await vi.runAllTimersAsync();
+	expect(status().textContent).not.toContain("Obsolete error");
+	expect(button("suspend-all").disabled).toBe(false);
+});
