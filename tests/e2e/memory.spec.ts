@@ -114,7 +114,13 @@ for (const route of ["tab", "all windows"] as const) {
 				expect(await getTab()).toMatchObject({ active: false, discarded: true });
 				expect(await evaluate(worker, (id) => chrome.tabs.get(id), awake.id as number)).toMatchObject({ active: true, discarded: false, status: "complete" });
 				await evaluate(worker, (id) => chrome.tabs.update(id, { active: true }), (await getTab()).id as number);
+				await evaluate(worker, (id) => chrome.windows.update(id, { focused: true }), awake.windowId);
 				const placeholder = await target((entry) => entry.url.includes("/suspended.html#"));
+				await expect.poll(() => evaluate(placeholder, () => {
+					const button = document.querySelector<HTMLButtonElement>("#resume");
+					return Boolean(button && !button.disabled);
+				})).toBe(true);
+				expect(pageLoads).toBe(1);
 				await evaluate(placeholder, () => document.querySelector<HTMLButtonElement>("#resume")?.click());
 				await expect.poll(() => pageLoads).toBe(2);
 				await expect.poll(async () => (await getTab()).status).toBe("complete");

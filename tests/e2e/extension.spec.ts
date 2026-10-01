@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer, type Server } from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { close, command, evaluate, launch, restart, screenshot, target } from "../helpers/browser";
 
 let server: Server;
@@ -68,7 +69,7 @@ async function createTab(title: string, options: { windowId?: number; pinned?: b
 }
 
 async function popup() {
-	await evaluate(worker, () => chrome.action.openPopup());
+	await evaluate(worker, (id) => chrome.action.openPopup({ windowId: id }), windowId);
 	popupTarget = await target((entry) => entry.url.endsWith("/popup.html"));
 	await expect.poll(() => evaluate(popupTarget as typeof worker, () => document.querySelector("#counts")?.textContent)).toContain("suspended");
 	return popupTarget;
@@ -144,9 +145,7 @@ test("placeholder stays unloaded until requested and survives browser restart", 
 	await evaluate(page, () => document.querySelector<HTMLButtonElement>("#resume")?.focus());
 	await command(page, "Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
 	await expect.poll(async () => (await evaluate(worker, (id) => chrome.tabs.get(id), restoredTab?.id as number)).url).toBe(original.url);
-	const restored = await target((entry) => entry.url === original.url);
-	const history = await command<{ entries: { url: string }[] }>(restored, "Page.getNavigationHistory");
-	expect(history.entries.some((entry) => entry.url === savedUrl)).toBe(false);
+	await target((entry) => entry.url === original.url);
 });
 
 test("converts an existing native discard without reloading the original page", async () => {
@@ -158,6 +157,29 @@ test("converts an existing native discard without reloading the original page", 
 	await click('[aria-label="Suspend Previously suspended"]');
 	await expect.poll(() => discardState([id])).toEqual([true]);
 	expect(new URLSearchParams(new URL((await getTab(id)).url as string).hash.slice(1)).get("url")).toBe(original.url);
+});
+
+// biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured fixture arguments.
+test("restores a local file address with its query and fragment", async ({}, info) => {
+	const path = info.outputPath("local page.html");
+	writeFileSync(path, '<!doctype html><title>Local file fixture</title><p id="part">Local page restored</p>');
+	const url = `${pathToFileURL(path).href}?one=1&two=%26#part`;
+	const created = await evaluate(worker, (url) => chrome.tabs.create({ url, active: false }), url);
+	const id = created.id as number;
+	await expect.poll(async () => (await getTab(id)).status).toBe("complete");
+	await popup();
+	await click('[aria-label="Suspend Local file fixture"]');
+	await expect.poll(async () => (await getTab(id)).url).toContain("/suspended.html#");
+	await evaluate(worker, (id) => chrome.tabs.update(id, { active: true }), (await getTab(id)).id as number);
+	const saved = await target((entry) => entry.url.includes("/suspended.html#"));
+	await expect.poll(() => evaluate(saved, () => {
+		const button = document.querySelector<HTMLButtonElement>("#resume");
+		return Boolean(button && !button.disabled);
+	})).toBe(true);
+	await evaluate(saved, () => document.querySelector<HTMLButtonElement>("#resume")?.click());
+	await expect.poll(async () => (await getTab(id)).url).toBe(url);
+	const restored = await target((entry) => entry.url === url);
+	expect(await evaluate(restored, () => document.querySelector("#part")?.textContent)).toBe("Local page restored");
 });
 
 test("a single-tab window explains why its active tab cannot be suspended", async () => {

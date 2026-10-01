@@ -32,6 +32,7 @@ export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
 			sendMessage: vi.fn().mockResolvedValue({ suspended: 1, skipped: 0, failed: 0, errors: [] }),
 		},
 		tabs: {
+			getCurrent: vi.fn(async () => tabs.find((item) => item.active)),
 			get: vi.fn(async (id: number) => ({ ...get(id) })),
 			query: vi.fn(async (query: chrome.tabs.QueryInfo) => tabs.filter((item) =>
 				(query.windowId === undefined || query.windowId === item.windowId) &&
