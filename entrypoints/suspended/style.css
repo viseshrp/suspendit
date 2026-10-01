@@ -17,3 +17,5 @@ button:disabled { opacity: 0.5; cursor: default; }
 #status { font-size: 12px; line-height: 1.6; color: var(--md-sys-color-on-surface-variant); margin: 18px 0 0; }
 footer { padding: 28px; text-align: center; font-size: 11px; letter-spacing: 0.3px; color: var(--md-sys-color-on-surface-variant); }
 @media (max-width: 420px) { header { padding: 20px; } main { padding: 24px 20px; } .moon { width: 128px; height: 128px; margin-bottom: 24px; } }
+
+@media (min-width: 421px) and (max-height: 800px) { header { padding-block: 20px; } main { padding-block: 24px; } .moon { width: 144px; height: 144px; margin-bottom: 24px; } footer { padding: 20px; } }
