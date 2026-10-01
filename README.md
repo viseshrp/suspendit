@@ -5,15 +5,19 @@
 Suspend individual tabs, Chrome tab groups, a window, or every window.
 An English-only popup, a page context menu, and no runtime dependencies.
 
-Suspension uses [`chrome.tabs.discard()`](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-discard).
-Chrome keeps the tab in the tab strip and reloads the original page when you select it.
-Chrome controls when renderer memory returns to the operating system. A suspended count
-does not measure RAM saved; see [memory troubleshooting](docs/troubleshooting.md).
+SuspendIt unloads each site and replaces it with a small local page. The original address and
+title stay available, and **Resume page** brings the site back. The placeholder also unloads
+while in the background. No website access permissions or runtime frameworks are required.
+
+Chrome can retain an empty renderer briefly before returning its memory to the operating
+system. Tests require measured memory release; see [memory troubleshooting](docs/troubleshooting.md).
 
 <p>
   <img src="docs/screenshots/popup-light.png" width="310" alt="SuspendIt popup in the light theme" />
   <img src="docs/screenshots/popup-dark.png" width="310" alt="SuspendIt popup in the dark theme" />
 </p>
+
+<img src="docs/screenshots/suspended-light.png" width="720" alt="Yellow suspended-page placeholder with a Resume page button" />
 
 ## Install
 
@@ -31,7 +35,7 @@ Requires Chrome 120 or newer.
 - Collapse windows or groups with their chevrons. Search expands matching sections; clearing it restores your collapsed sections.
 - Use a group's or window's **Suspend** button, or **Suspend all windows**. These actions apply to the entire group/window even while searching.
 - Right-click a web page and choose **Suspend this tab**.
-- Select a suspended tab, or click its title in the popup, to load the original page again.
+- Select a suspended tab and click **Resume page**, or click its title in the popup, to load the original page again.
 
 Search and bulk controls stay visible while the tab list scrolls. Site icons come from Chrome.
 Live updates retain existing rows, focus, and scroll position. Browser tests cover 500 and
@@ -44,6 +48,8 @@ If no awake neighbor exists, that action is unavailable. Browser-internal pages 
 
 Suspension reloads the page when you return; unsaved in-page state can be lost. Chrome may
 refuse an individual discard. Popup results report suspended, skipped, and failed counts.
+Previously native-discarded tabs can be suspended again to convert them without loading their sites.
+Resume saved tabs before removing the extension.
 A failed context-menu action places **!** on the toolbar icon; hover over it for the reason.
 
 ## Project structure
@@ -51,7 +57,8 @@ A failed context-menu action places **!** on the toolbar icon; hover over it for
 | Path | Purpose |
 | --- | --- |
 | `entrypoints/background/` | Native discard requests and page context menu |
-| `entrypoints/popup/` | The only extension page, written in HTML/CSS/TypeScript |
+| `entrypoints/popup/` | Tab controls, written in HTML/CSS/TypeScript |
+| `entrypoints/suspended/` | Lightweight local placeholder and Resume button |
 | `entrypoints/shared/` | Tab rules, result text, theme, and reused utility functions |
 | `public/icon/` | SVG source and PNGs at 16, 19, 32, 38, 48, 96, and 128 pixels |
 | `scripts/`, `tests/`, `.github/workflows/` | Build verification, browser tests, CI and releases |

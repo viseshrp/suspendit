@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-01",
+  "platform": "macOS arm64",
+  "browserMode": "headed",
+  "implementationCommit": "b79532757e5c852554709f35f9e5d6afb27aa397",
+  "method": "128 MiB randomized fixture; production popup; ps RSS of isolated Chrome renderers; no forced GC, lifecycle flags, or renderer kills. RSS includes renderer overhead. Restoration passed after an explicit Resume click.",
+  "results": [
+    {
+      "browser": "Chrome/154.0.8037.92",
+      "scope": "all windows",
+      "sameSiteAwakeTab": false,
+      "allocationMiB": 128,
+      "beforeMiB": 217.78125,
+      "afterMiB": 0,
+      "releasedMiB": 217.78125,
+      "elapsedMs": 23086,
+      "rendererExited": true
+    },
+    {
+      "browser": "Chrome/154.0.8037.92",
+      "scope": "tab",
+      "sameSiteAwakeTab": true,
+      "allocationMiB": 128,
+      "beforeMiB": 216.359375,
+      "afterMiB": 0,
+      "releasedMiB": 216.359375,
+      "elapsedMs": 23142,
+      "rendererExited": true
+    },
+    {
+      "browser": "Chrome/154.0.8037.92",
+      "scope": "tab",
+      "sameSiteAwakeTab": false,
+      "allocationMiB": 128,
+      "beforeMiB": 217.734375,
+      "afterMiB": 0,
+      "releasedMiB": 217.734375,
+      "elapsedMs": 23384,
+      "rendererExited": true
+    },
+    {
+      "browser": "Chrome/154.0.8037.92",
+      "scope": "all windows",
+      "sameSiteAwakeTab": true,
+      "allocationMiB": 128,
+      "beforeMiB": 221.734375,
+      "afterMiB": 0,
+      "releasedMiB": 221.734375,
+      "elapsedMs": 23120,
+      "rendererExited": true
+    }
+  ]
+}

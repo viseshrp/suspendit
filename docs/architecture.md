@@ -1,6 +1,6 @@
 # Architecture
 
-WXT builds two entrypoints: `popup.html` and an event-driven Manifest V3 service worker.
+WXT builds `popup.html`, `suspended.html`, and an event-driven Manifest V3 service worker.
 The popup reads tab/window/group metadata and renders native DOM elements cloned from HTML
 templates. Titles and URLs are assigned with `textContent`. Site icons use Chrome's built-in
 `_favicon` endpoint, with lazy loading and a local fallback. Search and collapsed-window/group
@@ -18,7 +18,9 @@ Structural events coalesce full queries over 75 ms. Query versions reject obsole
 newer metadata is kept when it arrives during a query. The popup releases this state when closed.
 
 The popup sends a validated scope request to the worker, which re-queries tabs, applies
-eligibility rules, and invokes `chrome.tabs.discard(tabId)`. Up to four discards run at once.
+eligibility rules, and invokes `chrome.tabs.discard(tabId)` before navigating the same tab to
+`suspended.html`. Discard flushes the old document from the back/forward cache. Up to four
+suspensions run at once. Previously discarded tabs proceed directly to the placeholder.
 Each result is counted separately, so one closed or refused tab does not stop a bulk action.
 The worker finishes requests independently of the popup's lifetime.
 
@@ -27,9 +29,23 @@ in the same window. Bulk actions keep active, pinned, and audible tabs awake. Sc
 and protection state are rechecked immediately before each action. Chrome makes the final
 discard decision.
 
-Selecting a suspended tab uses ordinary tab activation. Chrome owns unloading and restoration.
-There are no replacement pages, captured documents, timers for automatic suspension, content
-scripts, background polling, persistent settings, network services, or custom restore state.
+The placeholder URL fragment holds the original address and title using `URLSearchParams`.
+Only HTTP, HTTPS, and file addresses are accepted. The popup decodes these values for title,
+search, hostname, and favicon display. DOM text assignments prevent titles from becoming HTML.
+After native discard, the worker checks the current address, active state, scope, and bulk
+protections again before replacing the page. A failed navigation leaves the discarded original
+address recoverable. Returned replacement tab IDs are followed throughout the operation.
+
+An `onUpdated` listener discards completed, inactive placeholders. Activating a saved tab loads
+only the placeholder. Its button uses Chrome's navigation API to restore the original address,
+including local files; the popup can also activate and navigate the tab directly. Chrome's
+normal navigation history applies. Fragment metadata survives Chrome
+session restoration and does not depend on service-worker memory. Invalid metadata disables
+restoration. Saved URLs remain local to Chrome's normal tab/session/history records.
+
+There are no automatic suspension timers, content scripts, background polling, settings pages,
+runtime dependencies, or network services. Chrome owns process cleanup; the browser tests
+measure actual renderer RSS rather than inferring memory release from a tab flag.
 
 ## Permissions
 

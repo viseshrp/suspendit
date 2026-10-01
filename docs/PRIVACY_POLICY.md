@@ -1,17 +1,21 @@
 # Privacy policy
 
-SuspendIt does not collect, transmit, sell, or persist personal data.
+SuspendIt does not send browsing data to a server, sell data, use analytics, or read website
+contents. It reads open-tab titles and URLs, window membership, group names/colors, and tab
+state to show its popup and carry out actions you choose.
 
-The extension reads open-tab titles and URLs, window membership, group names/colors, and tab
-state to show its popup and carry out actions you choose. This information stays in Chrome.
-SuspendIt does not read website contents, use analytics, contact a server, or maintain a copy
-of your browsing history. Site icons come through Chrome's built-in favicon endpoint; the
-extension does not contact third-party favicon providers or load remote fonts or scripts.
+When you suspend a page, SuspendIt saves its original address and title in the fragment of a
+local extension URL. This keeps the page recoverable after a browser restart without a database
+or storage permission. Chrome may retain that URL in its own tab/session/history records.
+Treat suspended tabs like ordinary tabs when sharing addresses or browser profiles. SuspendIt
+does not create a separate browsing-history log or transmit this metadata.
 
-Suspension is handled by Chrome's native tab-discarding API. Chrome controls the page's
-unloading and subsequent reload. A reload contacts the original site in the normal way.
+The extension first uses Chrome's discard API, navigates to the local placeholder, and unloads
+the inactive placeholder. Resuming contacts the original site in the normal way. The placeholder
+sets a no-referrer policy. Site icons in the popup come through Chrome's built-in favicon
+endpoint; the extension does not use third-party favicon providers, remote fonts, or remote scripts.
 
-The `tabs`, `tabGroups`, `contextMenus`, and `favicon` permissions support these features. There are no
-host permissions or content scripts.
+The `tabs`, `tabGroups`, `contextMenus`, and `favicon` permissions support these features.
+There are no host permissions, content scripts, or additional permissions for placeholders.
 
 Questions can be raised in the [project's issue tracker](https://github.com/viseshrp/suspendit/issues).

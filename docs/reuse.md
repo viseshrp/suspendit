@@ -12,7 +12,8 @@ and [nufftabs](https://github.com/viseshrp/nufftabs/tree/8187d19f2276cadcad60254
 | Both repositories | Playwright test layout and isolated Chromium profiles; targeted DevTools connections accommodate native discard |
 
 Build and test dependencies stay in development. The shipped popup uses native DOM APIs and CSS.
-The suspension feature calls `chrome.tabs.discard()` directly. The reference repositories' storage,
-Drive, editor, restore, options, and translation features are outside this extension's scope.
+Suspension calls `chrome.tabs.discard()` directly and uses a small local restore page.
+The reference repositories' storage,
+Drive, editor, options, and translation features are outside this extension's scope.
 
-Tests run against the production extension, including real discarded tab state and automatic restoration.
+Tests run against the production extension, including real discarded tab state, measured renderer memory release, and explicit restoration.
