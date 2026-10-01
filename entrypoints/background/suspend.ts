@@ -1,3 +1,4 @@
+import { suspendedUrl } from "../shared/suspended";
 import { awakeNeighbor, skipReason, type SuspendRequest, type SuspendResult } from "../shared/tabs";
 import { getErrorMessage, runWithConcurrency } from "../shared/utils";
 
@@ -29,10 +30,20 @@ export async function suspendTabs(request: SuspendRequest): Promise<SuspendResul
 					}
 					await chrome.tabs.update(neighbor.id, { active: true });
 				}
-				// Chrome alone unloads the page and restores it on activation.
-				const discarded = await chrome.tabs.discard(tab.id as number);
+				// Discard first so the old document cannot survive in the back/forward cache.
+				const discarded = tab.discarded ? tab : await chrome.tabs.discard(tab.id as number);
 				if (!discarded?.discarded) throw new Error("Chrome could not suspend this tab.");
 				if (!bulk) result.tabId = discarded.id;
+				const current = await chrome.tabs.get(discarded.id as number);
+				if (current.active || current.pendingUrl || current.url !== tab.url || !current.discarded ||
+					skipReason(current, bulk) ||
+					(request.scope === "window" && current.windowId !== request.id) ||
+					(request.scope === "group" && current.groupId !== request.id)) {
+					throw new Error("The tab changed while suspending. Try again.");
+				}
+				const savedUrl = suspendedUrl(tab);
+				const updated = await chrome.tabs.update(current.id as number, { url: savedUrl });
+				if ((updated?.pendingUrl ?? updated?.url) !== savedUrl) throw new Error("Chrome could not save the suspended page.");
 				result.suspended++;
 			} catch (error) {
 				result.failed++;

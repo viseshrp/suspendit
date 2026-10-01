@@ -1,4 +1,5 @@
 import { defineBackground } from "wxt/utils/define-background";
+import { suspendedPage } from "../shared/suspended";
 import { isSuspendRequest, resultMessage } from "../shared/tabs";
 import { suspendTabs } from "./suspend";
 
@@ -33,6 +34,13 @@ export function registerListeners() {
 	chrome.runtime.onStartup.addListener(install);
 	chrome.contextMenus.onClicked.addListener((info, tab) => {
 		void suspendFromMenu(info, tab).catch(console.error);
+	});
+	// Once navigation commits, unload the tiny placeholder too. Selecting it still
+	// opens its Resume button; the original site stays unloaded until requested.
+	chrome.tabs.onUpdated.addListener((_id, change, tab) => {
+		if (change.status === "complete" && !tab.active && !tab.discarded && suspendedPage(tab.url)) {
+			void chrome.tabs.discard(tab.id).catch(() => {});
+		}
 	});
 	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("popup.html") || !isSuspendRequest(message)) return;

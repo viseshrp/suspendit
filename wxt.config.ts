@@ -11,7 +11,7 @@ export default defineConfig({
 	manifest: {
 		version: process.env.RELEASE_VERSION ?? "1.0.0",
 		name: "SuspendIt",
-		description: "Free up memory. Suspend tabs, groups, or windows using Chrome’s native tab discarding.",
+		description: "Free up memory. Unload tabs, groups, or windows and keep a lightweight page to resume them when you need them.",
 		minimum_chrome_version: "120",
 		homepage_url: "https://github.com/viseshrp/suspendit",
 		permissions: ["tabs", "tabGroups", "contextMenus", "favicon"],

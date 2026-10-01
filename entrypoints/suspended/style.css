@@ -1,0 +1,19 @@
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body { min-height: 100svh; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 10px; padding: 28px 36px; font-size: 15px; font-weight: 650; letter-spacing: -0.3px; }
+main { width: min(100%, 640px); margin: auto; padding: 48px 32px; text-align: center; }
+.moon { width: 176px; height: 176px; display: grid; place-items: center; margin: 0 auto 32px; border-radius: 50%; background: radial-gradient(circle, var(--md-sys-color-primary-container), transparent 72%); }
+.eyebrow { color: var(--md-sys-color-primary); font-size: 11px; font-weight: 750; letter-spacing: 2px; margin: 0 0 16px; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.14; letter-spacing: -1.6px; font-weight: 650; margin: 0; }
+.description { color: var(--md-sys-color-on-surface-variant); font-size: 16px; line-height: 1.6; margin: 20px 0 32px; }
+.page { padding: 22px 24px; margin-bottom: 28px; border: 1px solid rgba(var(--md-sys-color-outline-rgb), 0.25); border-radius: 16px; background: var(--md-sys-color-surface); }
+h2 { font-size: 16px; font-weight: 600; line-height: 1.4; margin: 0 0 8px; overflow-wrap: anywhere; }
+#page-address { color: var(--md-sys-color-on-surface-variant); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; margin: 0; max-height: 6.4em; overflow: auto; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 28px; min-height: 50px; padding: 12px 24px; border: 0; border-radius: 12px; font: 650 15px var(--md-sys-typescale-body-font); background: var(--sys-color-action-background); color: var(--md-sys-color-on-primary); cursor: pointer; }
+button:hover { filter: brightness(1.05); }
+button:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 4px; }
+button:disabled { opacity: 0.5; cursor: default; }
+#status { font-size: 12px; line-height: 1.6; color: var(--md-sys-color-on-surface-variant); margin: 18px 0 0; }
+footer { padding: 28px; text-align: center; font-size: 11px; letter-spacing: 0.3px; color: var(--md-sys-color-on-surface-variant); }
+@media (max-width: 420px) { header { padding: 20px; } main { padding: 24px 20px; } .moon { width: 128px; height: 128px; margin-bottom: 24px; } }

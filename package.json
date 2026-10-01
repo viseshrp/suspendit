@@ -1,6 +1,6 @@
 {
   "name": "suspendit",
-  "description": "Suspend tabs, groups, and windows with Chrome native tab discarding.",
+  "description": "Free up memory by unloading tabs, groups, and windows into lightweight placeholders.",
   "private": true,
   "version": "1.0.0",
   "type": "module",

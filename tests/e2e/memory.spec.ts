@@ -7,20 +7,24 @@ import { browserCommand, close, evaluate, launch, target } from "../helpers/brow
 
 const run = promisify(execFile);
 
-async function rendererMemory() {
-	const { processInfo } = await browserCommand<{ processInfo: { type: string; id: number }[] }>("SystemInfo.getProcessInfo");
-	const ids = processInfo.filter((process) => process.type === "renderer").map((process) => process.id);
+async function rendererMemory(ids?: number[]) {
+	if (!ids) {
+		const { processInfo } = await browserCommand<{ processInfo: { type: string; id: number }[] }>("SystemInfo.getProcessInfo");
+		ids = processInfo.filter((process) => process.type === "renderer").map((process) => process.id);
+	}
+	if (!ids.length) return [];
 	const { stdout } = await run("ps", ["-o", "pid=,rss=", "-p", ids.join(",")]);
-	return stdout.trim().split("\n").map((line) => {
+	return stdout.trim().split("\n").filter(Boolean).map((line) => {
 		const [id, kib] = line.trim().split(/\s+/).map(Number);
 		return { id, mib: kib / 1024 };
 	});
 }
 
-for (const route of ["popup", "direct API"] as const) {
+for (const route of ["tab", "all windows"] as const) {
 	for (const sameSite of [false, true]) {
 		// biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured fixture arguments.
-		test(`native discard lifecycle and memory: ${route}, ${sameSite ? "same-site" : "separate-site"} awake tab`, async ({}, info) => {
+		test(`placeholder suspension releases memory: ${route}, ${sameSite ? "same-site" : "separate-site"} awake tab`, async ({}, info) => {
+			test.setTimeout(90_000);
 			test.skip(process.platform === "win32", "Renderer RSS measurement uses macOS/Linux ps.");
 			let allocate: (() => void) | undefined;
 			let heartbeats = 0;
@@ -41,7 +45,10 @@ for (const route of ["popup", "direct API"] as const) {
 						return bytes;
 					});
 					document.title = "Memory fixture ready";
-					setInterval(() => fetch('/heartbeat'), 500);
+					setInterval(() => {
+						for (const bytes of window.buffers) for (let offset = 0; offset < bytes.length; offset += 4096) bytes[offset] ^= 1;
+						fetch('/heartbeat');
+					}, 500);
 				});
 				</script><p>128 MiB held until Chrome unloads this page.</p></html>` :
 					"<!doctype html><html lang=en><title>Awake tab</title><p>Keep this tab awake.</p></html>");
@@ -55,15 +62,13 @@ for (const route of ["popup", "direct API"] as const) {
 				const [awake] = await evaluate(worker, () => chrome.tabs.query({ active: true }));
 				const url = `http://${sameSite ? "127.0.0.1" : "localhost"}:${address.port}/heavy`;
 				await evaluate(worker, (options) => chrome.tabs.create(options), { url, active: false, ...(sameSite ? { openerTabId: awake.id } : {}) });
-				const getTab = async () => (await evaluate(worker, (url) => chrome.tabs.query({ url }), url))[0];
+				const getTab = async () => (await evaluate(worker, () => chrome.tabs.query({}))).find((tab) => tab.url === url || tab.url?.includes(encodeURIComponent(url))) as chrome.tabs.Tab;
 				await expect.poll(() => Boolean(allocate)).toBe(true);
 				await expect.poll(async () => (await getTab()).status).toBe("complete");
-				let popup: typeof worker | undefined;
-				if (route === "popup") {
-					await evaluate(worker, () => chrome.action.openPopup());
-					popup = await target((entry) => entry.url.endsWith("/popup.html"));
-					await expect.poll(() => evaluate(popup as typeof worker, () => Boolean(document.querySelector('[aria-label="Suspend Memory fixture waiting"]')))).toBe(true);
-				}
+				await evaluate(worker, (id) => chrome.action.openPopup({ windowId: id }), awake.windowId);
+				const popup = await target((entry) => entry.url.endsWith("/popup.html"));
+				await expect.poll(() => evaluate(popup, () => Boolean(document.querySelector('[aria-label="Suspend Memory fixture waiting"]')))).toBe(true);
+				await new Promise((resolve) => setTimeout(resolve, 500));
 				const baseline = await rendererMemory();
 				allocate?.();
 				await expect.poll(async () => (await getTab()).title).toBe("Memory fixture ready");
@@ -74,52 +79,48 @@ for (const route of ["popup", "direct API"] as const) {
 				const growth = before.filter((process) => baseline.some((previous) => previous.id === process.id)).map((process) => ({ ...process,
 					growthMiB: process.mib - (baseline.find((previous) => previous.id === process.id)?.mib ?? 0),
 				})).sort((a, b) => b.growthMiB - a.growthMiB);
+				await writeFile(info.outputPath("allocation.json"), JSON.stringify({ baseline, before, growth }, null, 2));
 				const fixture = growth[0];
 				expect(fixture.growthMiB).toBeGreaterThan(96);
-				if (popup) {
-					await expect.poll(() => evaluate(popup as typeof worker, () => Boolean(document.querySelector('[aria-label="Suspend Memory fixture ready"]')))).toBe(true);
-					await evaluate(popup, () => { document.querySelector<HTMLButtonElement>('[aria-label="Suspend Memory fixture ready"]')?.click(); });
-				} else {
-					// Control: never open the popup and bypass SuspendIt's action handling.
-					await evaluate(worker, async (url) => {
-						const [tab] = await chrome.tabs.query({ url });
-						await chrome.tabs.discard(tab.id as number);
-					}, url);
-				}
-				await expect.poll(async () => (await getTab()).discarded).toBe(true);
+				const selector = route === "tab" ? '[aria-label="Suspend Memory fixture ready"]' : "#suspend-all";
+				await expect.poll(() => evaluate(popup, (selector) => Boolean(document.querySelector<HTMLButtonElement>(selector) && !document.querySelector<HTMLButtonElement>(selector)?.disabled), selector)).toBe(true);
+				await evaluate(popup, (selector) => { document.querySelector<HTMLButtonElement>(selector)?.click(); }, selector);
+				await expect.poll(async () => (await getTab()).url).toContain("/suspended.html#");
 				const started = performance.now();
 				const samples: { elapsedMs: number; heartbeats: number; processes: Awaited<ReturnType<typeof rendererMemory>> }[] = [];
-				// A native discard does not promise an RSS decrease by a deadline. Observe
-				// actual memory separately; strict mode reproduces retained-memory runs.
+				// Chrome can keep an empty renderer alive for its 23-second reuse timer.
+				// Require physical memory release, with 12 seconds of scheduling headroom.
 				while (true) {
-					const processes = await rendererMemory();
+					const processes = await rendererMemory(before.map((process) => process.id));
 					const elapsedMs = performance.now() - started;
 					samples.push({ elapsedMs, heartbeats, processes });
 					const released = fixture.mib - (processes.find((process) => process.id === fixture.id)?.mib ?? 0);
-					if (elapsedMs >= 15_000 || (elapsedMs >= 3_000 && released > 64)) break;
+					if (elapsedMs >= 35_000 || (elapsedMs >= 3_000 && released > 64)) break;
 					await new Promise((resolve) => setTimeout(resolve, 500));
 				}
 				const after = samples[samples.length - 1];
 				const afterMiB = after.processes.find((process) => process.id === fixture.id)?.mib ?? 0;
 				const releasedMiB = fixture.mib - afterMiB;
-				const measurement = { browser: version.product, route, sameSite, allocationMiB: 128, baseline, before, samples,
+				const finalProcesses = await rendererMemory();
+				const measurement = { browser: version.product, route, sameSite, finalProcesses, allocationMiB: 128, baseline, before, samples,
 					fixture: { processId: fixture.id, growthMiB: fixture.growthMiB, beforeMiB: fixture.mib, afterMiB, releasedMiB },
 				};
 				await writeFile(info.outputPath("memory.json"), `${JSON.stringify(measurement, null, 2)}\n`);
 				console.log(JSON.stringify({ browser: version.product, route, sameSite, observedMs: Math.round(after.elapsedMs), ...measurement.fixture }));
-				if (releasedMiB <= 64) info.annotations.push({ type: "memory", description: "Chrome retained renderer RSS during the observation window; see memory.json." });
 				// Require stopped page activity, no spontaneous reload, an awake neighbor,
-				// and a fresh document when the user returns, regardless of RSS retention.
+				// and restoration only after an explicit Resume click.
 				for (const sample of samples.slice(-5)) expect(sample.heartbeats).toBe(after.heartbeats);
 				expect(pageLoads).toBe(1);
-				expect(await getTab()).toMatchObject({ url, discarded: true, active: false });
+				expect(await getTab()).toMatchObject({ active: false, discarded: true });
 				expect(await evaluate(worker, (id) => chrome.tabs.get(id), awake.id as number)).toMatchObject({ active: true, discarded: false, status: "complete" });
 				await evaluate(worker, (id) => chrome.tabs.update(id, { active: true }), (await getTab()).id as number);
+				const placeholder = await target((entry) => entry.url.includes("/suspended.html#"));
+				await evaluate(placeholder, () => document.querySelector<HTMLButtonElement>("#resume")?.click());
 				await expect.poll(() => pageLoads).toBe(2);
 				await expect.poll(async () => (await getTab()).status).toBe("complete");
 				const restored = await target((entry) => entry.url === url);
-				expect(await evaluate(restored, () => (document as Document & { wasDiscarded: boolean }).wasDiscarded)).toBe(true);
-				if (process.env.SUSPENDIT_REQUIRE_MEMORY_RELEASE === "1") expect(releasedMiB).toBeGreaterThan(64);
+				expect(await evaluate(restored, () => location.href)).toBe(url);
+				expect(releasedMiB).toBeGreaterThan(64);
 			} finally {
 				await close(info.outputPath("chrome.log"));
 				await new Promise<void>((resolve) => server.close(() => resolve()));

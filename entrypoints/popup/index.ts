@@ -1,3 +1,4 @@
+import { isSuspended, suspendedPage } from "../shared/suspended";
 import { resultMessage, skipReason, type SuspendRequest, type SuspendResult } from "../shared/tabs";
 import { getErrorMessage } from "../shared/utils";
 import { renderWindows } from "./render";
@@ -28,7 +29,7 @@ function showStatus(message: string, error = false) {
 
 function render() {
 	const focusId = document.activeElement?.id;
-	const suspended = tabs.filter((tab) => tab.discarded).length;
+	const suspended = tabs.filter(isSuspended).length;
 	(document.getElementById("counts") as HTMLElement).textContent = `${tabs.length} ${tabs.length === 1 ? "tab" : "tabs"} · ${suspended} suspended`;
 	suspendWindow.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && !skipReason(tab, true));
 	suspendAll.disabled = busy || !tabs.some((tab) => !skipReason(tab, true));
@@ -114,7 +115,9 @@ async function suspend(request: SuspendRequest) {
 
 async function openTab(id: number) {
 	try {
-		const tab = await chrome.tabs.update(id, { active: true });
+		const current = await chrome.tabs.get(id);
+		const saved = suspendedPage(current.url);
+		const tab = await chrome.tabs.update(id, { active: true, ...(saved ? { url: saved.url } : {}) });
 		if (!tab) throw new Error("The tab is no longer available.");
 		await chrome.windows.update(tab.windowId, { focused: true });
 		window.close();

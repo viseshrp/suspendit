@@ -21,7 +21,7 @@ function files(dir) {
   });
 }
 const built = files(output);
-assert.deepEqual(built.filter((path) => path.endsWith('.html')), [resolve(output, 'popup.html')]);
+assert.deepEqual(built.filter((path) => path.endsWith('.html')), [resolve(output, 'popup.html'), resolve(output, 'suspended.html')]);
 const scriptBytes = built.filter((path) => path.endsWith('.js')).reduce((sum, path) => sum + statSync(path).size, 0);
 assert.ok(scriptBytes <= 32 * 1024, `Shipped JavaScript exceeds 32 KiB: ${scriptBytes}`);
 if (process.argv.includes('--package')) {
@@ -31,4 +31,4 @@ if (process.argv.includes('--package')) {
   assert.ok(bytes <= 100 * 1024, `Package exceeds 100 KiB: ${bytes}`);
   console.log(`Package verified: ${bytes} bytes`);
 }
-console.log(`Manifest, popup, icons, and JavaScript budget verified (${scriptBytes} bytes of JS).`);
+console.log(`Manifest, popup, placeholder, icons, and JavaScript budget verified (${scriptBytes} bytes of JS).`);

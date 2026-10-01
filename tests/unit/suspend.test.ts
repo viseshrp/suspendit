@@ -1,25 +1,27 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { suspendTabs } from "../../entrypoints/background/suspend";
+import { suspendedPage, suspendedUrl } from "../../entrypoints/shared/suspended";
 import { awakeNeighbor, isSuspendRequest, resultMessage, skipReason } from "../../entrypoints/shared/tabs";
 import { getErrorMessage, runWithConcurrency } from "../../entrypoints/shared/utils";
 import { createMockChrome, tab } from "../helpers/mock_chrome";
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("native suspension", () => {
-	it("discards the original tab without replacing its URL, id, or group", async () => {
+describe("suspension", () => {
+	it("discards before replacing the page and preserves its ID and group", async () => {
 		const { mock, tabs } = createMockChrome([tab(1, { pinned: true, audible: true, groupId: 7 })]);
 		expect(await suspendTabs({ type: "suspend", scope: "tab", id: 1 })).toEqual({ suspended: 1, skipped: 0, failed: 0, errors: [], tabId: 1 });
 		expect(mock.tabs.discard).toHaveBeenCalledWith(1);
-		expect(mock.tabs.update).not.toHaveBeenCalled();
-		expect(tabs[0]).toMatchObject({ id: 1, url: "https://example.com/1", groupId: 7, discarded: true });
+		expect(mock.tabs.discard.mock.invocationCallOrder[0]).toBeLessThan(mock.tabs.update.mock.invocationCallOrder[0]);
+		expect(suspendedPage(tabs[0].url)).toEqual({ url: "https://example.com/1", title: "Tab 1" });
+		expect(tabs[0]).toMatchObject({ id: 1, groupId: 7, pinned: true });
 	});
 	it("selects an existing awake neighbor before discarding an active tab", async () => {
 		const { mock, tabs } = createMockChrome([tab(1, { active: true }), tab(2, { discarded: true }), tab(3), tab(4, { windowId: 2 })]);
 		const result = await suspendTabs({ type: "suspend", scope: "tab", id: 1 });
 		expect(result.suspended).toBe(1);
 		expect(mock.tabs.update).toHaveBeenCalledWith(3, { active: true });
-		expect(tabs[0].discarded).toBe(true);
+		expect(suspendedPage(tabs[0].url)).toBeDefined();
 		expect(tabs[1].discarded).toBe(true);
 	});
 	it("explains when the active tab has no awake neighbor", async () => {
@@ -29,15 +31,18 @@ describe("native suspension", () => {
 		expect(result.errors[0]).toContain("Keep another tab awake");
 		expect(mock.tabs.discard).not.toHaveBeenCalled();
 	});
-	it("protects active, pinned, audio, browser, and already discarded tabs in every window", async () => {
-		const { mock } = createMockChrome([tab(1, { active: true }), tab(2, { pinned: true }), tab(3, { audible: true }), tab(4, { discarded: true }), tab(5, { url: "chrome://settings" }), tab(6), tab(7, { windowId: 2 }), tab(8, { windowId: 2, active: true })]);
+	it("protects active, pinned, audio, browser, and placeholder tabs in every window", async () => {
+		const { mock, tabs } = createMockChrome([tab(1, { active: true }), tab(2, { pinned: true }), tab(3, { audible: true }), tab(4, { discarded: true }), tab(5, { url: "chrome://settings" }), tab(6), tab(7, { windowId: 2 }), tab(8, { windowId: 2, active: true })]);
+		tabs[3].url = suspendedUrl(tabs[3]);
 		expect(await suspendTabs({ type: "suspend", scope: "all" })).toEqual({ suspended: 2, skipped: 6, failed: 0, errors: [] });
 		expect(mock.tabs.discard.mock.calls.flat()).toEqual([6, 7]);
-		expect(mock.tabs.update).not.toHaveBeenCalled();
+		expect(mock.tabs.update).toHaveBeenCalledTimes(2);
 	});
 	it.each(["window", "group"] as const)("limits a %s action and skips tabs that move out of scope", async (scope) => {
 		const { mock } = createMockChrome([tab(1, { groupId: 1 }), tab(2, { groupId: 1 }), tab(3, { groupId: 2, windowId: 2 })]);
-		mock.tabs.get.mockImplementation(async (id) => tab(id, { groupId: id === 2 ? 2 : 1, windowId: id === 2 ? 2 : 1 }));
+		const get = mock.tabs.get.getMockImplementation();
+		if (!get) throw new Error("Missing mock implementation");
+		mock.tabs.get.mockImplementation(async (id) => ({ ...await get(id), groupId: id === 2 ? 2 : 1, windowId: id === 2 ? 2 : 1 }));
 		expect(await suspendTabs({ type: "suspend", scope, id: 1 })).toMatchObject({ suspended: 1, skipped: 1 });
 		expect(mock.tabs.discard.mock.calls.flat()).toEqual([1]);
 	});
@@ -50,6 +55,40 @@ describe("native suspension", () => {
 		const { mock } = createMockChrome([tab(1)]);
 		mock.tabs.discard.mockResolvedValueOnce(undefined as never);
 		expect(await suspendTabs({ type: "suspend", scope: "all" })).toMatchObject({ suspended: 0, failed: 1 });
+	});
+	it("converts a previously discarded tab without reloading its site", async () => {
+		const { mock, tabs } = createMockChrome([tab(1, { discarded: true })]);
+		expect(await suspendTabs({ type: "suspend", scope: "all" })).toMatchObject({ suspended: 1, failed: 0 });
+		expect(mock.tabs.discard).not.toHaveBeenCalled();
+		expect(suspendedPage(tabs[0].url)?.url).toBe("https://example.com/1");
+	});
+	it.each([
+		{ active: true }, { pendingUrl: "https://example.com/new" }, { url: "https://example.com/new" },
+		{ discarded: false }, { pinned: true }, { groupId: 2 },
+	])("does not replace a tab changed during discard: %j", async (change) => {
+		const { mock, tabs } = createMockChrome([tab(1, { groupId: 1 })]);
+		mock.tabs.discard.mockImplementationOnce(async () => {
+			Object.assign(tabs[0], { discarded: true }, change);
+			return tab(1, { discarded: true });
+		});
+		expect(await suspendTabs({ type: "suspend", scope: "group", id: 1 })).toMatchObject({ suspended: 0, failed: 1 });
+		expect(mock.tabs.update).not.toHaveBeenCalled();
+	});
+	it("does not replace a tab moved to another window during discard", async () => {
+		const { mock, tabs } = createMockChrome([tab(1)]);
+		mock.tabs.discard.mockImplementationOnce(async () => {
+			Object.assign(tabs[0], { discarded: true, windowId: 2 });
+			return { ...tabs[0] };
+		});
+		expect(await suspendTabs({ type: "suspend", scope: "window", id: 1 })).toMatchObject({ failed: 1 });
+		expect(mock.tabs.update).not.toHaveBeenCalled();
+	});
+	it("leaves the original address recoverable if placeholder navigation fails", async () => {
+		const { mock, tabs } = createMockChrome([tab(1), tab(2)]);
+		mock.tabs.update.mockRejectedValueOnce(new Error("Navigation refused"));
+		mock.tabs.update.mockResolvedValueOnce(undefined as never);
+		expect(await suspendTabs({ type: "suspend", scope: "all" })).toMatchObject({ suspended: 0, failed: 2 });
+		for (const item of tabs) expect(item).toMatchObject({ url: `https://example.com/${item.id}`, discarded: true });
 	});
 	it("handles closed tabs, query failures, and tabs without IDs", async () => {
 		const { mock } = createMockChrome([tab(1, { id: undefined })]);
@@ -67,6 +106,7 @@ it("validates messages before invoking a tab API", () => {
 });
 
 it("describes protected or unavailable tabs and selects only awake neighbors", () => {
+	createMockChrome();
 	expect(skipReason(tab(-1), false)).toBe("Tab unavailable");
 	expect(skipReason(tab(1, { url: undefined }), false)).toBe("Browser page");
 	expect(skipReason(tab(1, { pendingUrl: "chrome://settings" }), false)).toBe("Browser page");

@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { suspendedUrl } from "../../entrypoints/shared/suspended";
 import { createMockChrome, tab } from "../helpers/mock_chrome";
 
 const html = readFileSync(resolve("entrypoints/popup/index.html"), "utf8");
@@ -125,12 +126,27 @@ it("resumes by activating the original tab, focuses its window, and closes the p
 	expect(status().textContent).toContain("no longer available");
 });
 
+it("shows the saved title, URL and favicon and restores placeholders from the popup", async () => {
+	const original = { ...state.tabs[1], title: "Saved page", url: "https://example.com/report?one=1#part" };
+	state.tabs[1] = { ...original, title: "Tab suspended", url: suspendedUrl(original) };
+	await start();
+	expect(button("open-2").getAttribute("aria-label")).toBe("Resume Saved page");
+	expect(button("suspend-2").disabled).toBe(true);
+	const icon = document.querySelector('[data-tab-id="2"] img') as HTMLImageElement;
+	expect(new URL(icon.src).searchParams.get("pageUrl")).toBe(original.url);
+	search("report?one=1#part");
+	expect(document.querySelectorAll(".tab-row")).toHaveLength(1);
+	await click("open-2");
+	expect(state.mock.tabs.update).toHaveBeenCalledWith(2, { active: true, url: original.url });
+});
+
 it("keeps untrusted titles as text and explains disabled actions", async () => {
 	state.tabs.splice(0, state.tabs.length,
 		tab(1, { active: true, title: "<img src=x onerror=alert(1)>" }),
 		tab(2, { discarded: true, title: "", url: "file:///tmp/report.txt" }),
 		tab(3, { id: undefined, url: undefined, title: undefined, discarded: true }),
 	);
+	state.tabs[1].url = suspendedUrl(state.tabs[1]);
 	await start();
 	expect(document.querySelector(".tab-title img")).toBeNull();
 	expect(document.querySelector(".tab-title")?.textContent).toContain("<img");

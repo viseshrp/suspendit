@@ -12,15 +12,27 @@ let log = "";
 
 export async function launch(url: string) {
 	profile = await mkdtemp(join(tmpdir(), "suspendit-e2e-"));
-	const extension = resolve(".output/chrome-mv3");
 	log = "";
+	return start([url]);
+}
+
+export async function restart() {
+	const exited = new Promise<void>((resolve) => browser.once("exit", () => resolve()));
+	await browserCommand("Browser.close").catch(() => {});
+	await exited;
+	return start(["--restore-last-session"]);
+}
+
+async function start(extra: string[]) {
+	const extension = resolve(".output/chrome-mv3");
+	await rm(join(profile, "DevToolsActivePort"), { force: true });
 	browser = spawn(process.env.SUSPENDIT_TEST_CHROME || chromium.executablePath(), [
 		`--user-data-dir=${profile}`, "--remote-debugging-port=0", "--enable-automation",
 		"--no-first-run", "--no-default-browser-check", "--no-sandbox", "--window-size=1280,900",
 		"--use-mock-keychain", "--password-store=basic", "--disable-sync",
 		"--autoplay-policy=no-user-gesture-required",
-		"--headless",
-		`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, url,
+		...(process.env.SUSPENDIT_TEST_HEADED === "1" ? [] : ["--headless"]),
+		`--disable-extensions-except=${extension}`, `--load-extension=${extension}`, ...extra,
 	], { stdio: ["ignore", "ignore", "pipe"] });
 	browser.stderr?.on("data", (chunk) => { log = (log + chunk).slice(-20_000); });
 	await expect.poll(async () => {
@@ -56,10 +68,10 @@ export async function target(matches: (entry: Target) => boolean | Promise<boole
 }
 
 // Browser-level diagnostics are confined to the process launched by this helper.
-export async function browserCommand<T>(method: string): Promise<T> {
+export async function browserCommand<T>(method: string, params = {}): Promise<T> {
 	const response = await fetch(`http://127.0.0.1:${port}/json/version`);
 	const { webSocketDebuggerUrl } = await response.json() as Target;
-	return command<T>({ type: "browser", url: "", webSocketDebuggerUrl }, method);
+	return command<T>({ type: "browser", url: "", webSocketDebuggerUrl }, method, params);
 }
 
 // Keep DevTools detached from web pages while Chrome discards their renderers.
@@ -100,12 +112,13 @@ export async function evaluate<T, A = undefined>(entry: Target, fn: (arg: A) => 
 	return response.result.value;
 }
 
-export async function screenshot(entry: Target, path: string, colorScheme?: "light" | "dark") {
+export async function screenshot(entry: Target, path: string, colorScheme?: "light" | "dark", viewport?: { width: number; height: number }) {
 	// Media overrides belong to a DevTools session; keep it open through capture.
-	const setup = colorScheme ? [
+	const setup: { method: string; params: object }[] = colorScheme ? [
 		{ method: "Emulation.setEmulatedMedia", params: { features: [{ name: "prefers-color-scheme", value: colorScheme }] } },
 		{ method: "Runtime.evaluate", params: { expression: "new Promise(resolve => setTimeout(resolve, 250))", awaitPromise: true } },
 	] : [];
+	if (viewport) setup.unshift({ method: "Emulation.setDeviceMetricsOverride", params: { ...viewport, deviceScaleFactor: 1, mobile: false } });
 	const { data } = await command<{ data: string }>(entry, "Page.captureScreenshot", { format: "png" }, setup);
 	await writeFile(path, Buffer.from(data, "base64"));
 }

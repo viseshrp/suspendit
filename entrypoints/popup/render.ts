@@ -1,3 +1,4 @@
+import { isSuspended, suspendedPage } from "../shared/suspended";
 import { skipReason } from "../shared/tabs";
 
 const groupColors: Record<chrome.tabGroups.TabGroup["color"], string> = {
@@ -39,33 +40,35 @@ function tabRow(tab: chrome.tabs.Tab, hasNeighbor: boolean, busy: boolean) {
 	if (row.value === value) return row.element;
 	row.value = value;
 	row.element.dataset.tabId = key;
-	row.element.dataset.suspended = String(tab.discarded);
-	const title = tab.title || tab.url || "Untitled tab";
+	row.element.dataset.suspended = String(isSuspended(tab));
+	const saved = suspendedPage(tab.url);
+	const pageUrl = saved?.url ?? tab.url ?? "";
+	const title = saved?.title || tab.title || pageUrl || "Untitled tab";
 	let host = "Browser page";
 	try {
-		const url = new URL(tab.url ?? "");
+		const url = new URL(pageUrl);
 		host = url.protocol === "file:" ? "Local file" : url.hostname || "Browser page";
 	} catch { /* A new tab may not have a URL yet. */ }
-	const iconPage = JSON.stringify([tab.url, tab.favIconUrl]);
+	const iconPage = JSON.stringify([pageUrl, tab.favIconUrl]);
 	if (row.iconPage !== iconPage) {
 		row.iconPage = iconPage;
 		row.icon.hidden = true;
 		row.icon.removeAttribute("src");
-		if (/^https?:\/\//i.test(tab.url ?? "")) {
+		if (/^https?:\/\//i.test(pageUrl)) {
 			const favicon = new URL(chrome.runtime.getURL("_favicon/"));
-			favicon.searchParams.set("pageUrl", tab.url as string);
+			favicon.searchParams.set("pageUrl", pageUrl);
 			favicon.searchParams.set("size", "32");
 			row.icon.src = favicon.href;
 			row.icon.hidden = false;
 		}
 	}
 	row.title.textContent = title;
-	const state = tab.discarded ? "Suspended" : tab.active ? "Active" : tab.audible ? "Audio" : tab.pinned ? "Pinned" : "";
+	const state = isSuspended(tab) ? "Suspended" : tab.active ? "Active" : tab.audible ? "Audio" : tab.pinned ? "Pinned" : "";
 	row.meta.textContent = `${host}${state ? ` · ${state}` : ""}`;
 	row.open.dataset.id = String(tab.id);
 	row.open.id = `open-${key}`;
 	row.open.title = title;
-	row.open.setAttribute("aria-label", `${tab.discarded ? "Resume" : "Open"} ${title}`);
+	row.open.setAttribute("aria-label", `${isSuspended(tab) ? "Resume" : "Open"} ${title}`);
 	row.open.disabled = busy || tab.id === undefined;
 	row.suspend.dataset.id = String(tab.id);
 	row.suspend.id = `suspend-${key}`;
@@ -110,7 +113,7 @@ export function renderWindows(
 		window.tabs.push(tab);
 		const eligible = Number(!skipReason(tab, true));
 		window.eligible += eligible;
-		if (tab.id !== undefined && !tab.discarded && tab.status !== "unloaded") window.awake++;
+		if (tab.id !== undefined && !isSuspended(tab) && tab.status !== "unloaded") window.awake++;
 		if (groupMap.has(tab.groupId)) {
 			let count = groupCounts.get(tab.groupId);
 			if (!count) { count = { total: 0, eligible: 0 }; groupCounts.set(tab.groupId, count); }
@@ -123,7 +126,7 @@ export function renderWindows(
 	let matches = 0;
 	for (const [index, [windowId, window]] of orderedWindows.entries()) {
 		const visible = window.tabs.sort((a, b) => a.index - b.index).filter((tab) => !query ||
-			`${tab.title ?? ""} ${tab.url ?? ""} ${groupMap.get(tab.groupId)?.title ?? ""}`.toLowerCase().includes(query));
+			`${suspendedPage(tab.url)?.title ?? tab.title ?? ""} ${suspendedPage(tab.url)?.url ?? tab.url ?? ""} ${groupMap.get(tab.groupId)?.title ?? ""}`.toLowerCase().includes(query));
 		if (!visible.length) continue;
 		matches += visible.length;
 		let view = windows.get(windowId);
@@ -154,7 +157,7 @@ export function renderWindows(
 		const children: HTMLElement[] = [];
 		const groupRows = new Map<number, HTMLElement[]>();
 		for (const tab of visible) {
-			const ownAwake = Number(tab.id !== undefined && !tab.discarded && tab.status !== "unloaded");
+			const ownAwake = Number(tab.id !== undefined && !isSuspended(tab) && tab.status !== "unloaded");
 			const row = tabRow(tab, window.awake > ownAwake, busy);
 			const group = groupMap.get(tab.groupId);
 			if (!group) { children.push(row); continue; }

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 import { readFileSync } from "node:fs";
-import { close, evaluate, launch, screenshot, target } from "../helpers/browser";
+import { close, command, evaluate, launch, restart, screenshot, target } from "../helpers/browser";
 
 let server: Server;
 let base: string;
@@ -52,12 +52,12 @@ async function getTab(id: number) {
 	// Native discard can replace a tab ID. Follow the test page's original URL.
 	const result = await evaluate(worker, async ({ id, url }) => {
 		const tabs = await chrome.tabs.query({});
-		const tab = tabs.find((tab) => tab.id === id) ?? tabs.find((tab) => tab.url === url);
+		const tab = tabs.find((tab) => tab.id === id) ?? tabs.find((tab) => tab.url === url || (url && tab.url?.includes(encodeURIComponent(url))));
 		if (!tab) throw new Error(`Test tab ${id} disappeared`);
 		return tab;
 	}, { id, url: originalUrls.get(id) });
 	const url = result.pendingUrl || result.url;
-	if (url) originalUrls.set(id, url);
+	if (url && !url.includes("/suspended.html#")) originalUrls.set(id, url);
 	return result;
 }
 async function createTab(title: string, options: { windowId?: number; pinned?: boolean } = {}) {
@@ -86,22 +86,23 @@ async function click(selector: string) {
 }
 
 async function discardState(ids: number[]) {
-	return Promise.all(ids.map(async (id) => (await getTab(id)).discarded));
+	return Promise.all(ids.map(async (id) => (await getTab(id)).url?.includes("/suspended.html#") ?? false));
 }
 
-test("individual suspension preserves the original URL and Chrome restores the document", async () => {
+test("individual suspension saves the original address and popup Resume restores it", async () => {
 	const id = await createTab("Architecture notes");
 	const original = await getTab(id);
 	const page = await popup();
 	await click('[aria-label="Suspend Architecture notes"]');
 	await expect.poll(() => discardState([id])).toEqual([true]);
-	expect((await getTab(id)).url).toBe(original.url);
+	expect(new URLSearchParams(new URL((await getTab(id)).url as string).hash.slice(1)).get("url")).toBe(original.url);
 	await expect.poll(() => evaluate(page, () => document.querySelector("#status")?.textContent)).toContain("1 tab suspended");
 	await click('[aria-label="Resume Architecture notes"]');
+	await expect.poll(async () => (await getTab(id)).url).toBe(original.url);
 	await expect.poll(async () => (await getTab(id)).discarded).toBe(false);
 	await expect.poll(async () => (await getTab(id)).status).toBe("complete");
 	const restored = await target((entry) => entry.url === original.url);
-	expect(await evaluate(restored, () => (document as Document & { wasDiscarded: boolean }).wasDiscarded)).toBe(true);
+	expect(await evaluate(restored, () => location.href)).toBe(original.url);
 });
 
 test("an active tab switches to an existing awake tab before native discard", async () => {
@@ -111,6 +112,52 @@ test("an active tab switches to an existing awake tab before native discard", as
 	await expect.poll(() => discardState([activeId])).toEqual([true]);
 	expect((await getTab(neighbor)).active).toBe(true);
 	expect(await evaluate(worker, () => chrome.tabs.query({}))).toHaveLength(2);
+});
+
+// biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured fixture arguments.
+test("placeholder stays unloaded until requested and survives browser restart", async ({}, info) => {
+	const id = await createTab("Design references");
+	const original = await getTab(id);
+	await popup();
+	await click('[aria-label="Suspend Design references"]');
+	await expect.poll(() => discardState([id])).toEqual([true]);
+	await expect.poll(async () => (await getTab(id)).discarded).toBe(true);
+	const savedUrl = (await getTab(id)).url as string;
+	worker = await restart();
+	popupTarget = undefined;
+	const findRestored = () => evaluate(worker, async (url) => (await chrome.tabs.query({})).find((tab) => tab.url === url || tab.pendingUrl === url), savedUrl);
+	await expect.poll(findRestored).toBeDefined();
+	const restoredTab = await findRestored();
+	await evaluate(worker, (id) => chrome.tabs.update(id, { active: true }), restoredTab?.id as number);
+	let page = await target((entry) => entry.url === savedUrl);
+	await expect.poll(() => evaluate(page, () => document.querySelector("#page-title")?.textContent)).toBe("Design references");
+	await command(page, "Page.reload");
+	page = await target((entry) => entry.url === savedUrl);
+	await expect.poll(() => evaluate(page, () => document.querySelector("#page-title")?.textContent)).toBe("Design references");
+	for (const scheme of ["light", "dark"] as const) await screenshot(page, info.outputPath(`suspended-${scheme}.png`), scheme);
+	const viewport = { width: 360, height: 740 };
+	const layout = await command<{ result: { value: boolean } }>(page, "Runtime.evaluate", {
+		expression: "innerWidth === 360 && document.documentElement.scrollWidth <= innerWidth", returnByValue: true,
+	}, [{ method: "Emulation.setDeviceMetricsOverride", params: { ...viewport, deviceScaleFactor: 1, mobile: false } }]);
+	expect(layout.result.value).toBe(true);
+	await screenshot(page, info.outputPath("suspended-narrow.png"), "light", viewport);
+	await evaluate(page, () => document.querySelector<HTMLButtonElement>("#resume")?.focus());
+	await command(page, "Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+	await expect.poll(async () => (await evaluate(worker, (id) => chrome.tabs.get(id), restoredTab?.id as number)).url).toBe(original.url);
+	const restored = await target((entry) => entry.url === original.url);
+	const history = await command<{ entries: { url: string }[] }>(restored, "Page.getNavigationHistory");
+	expect(history.entries.some((entry) => entry.url === savedUrl)).toBe(false);
+});
+
+test("converts an existing native discard without reloading the original page", async () => {
+	const id = await createTab("Previously suspended");
+	const original = await getTab(id);
+	await evaluate(worker, (id) => chrome.tabs.discard(id), original.id as number);
+	await expect.poll(async () => (await getTab(id)).discarded).toBe(true);
+	await popup();
+	await click('[aria-label="Suspend Previously suspended"]');
+	await expect.poll(() => discardState([id])).toEqual([true]);
+	expect(new URLSearchParams(new URL((await getTab(id)).url as string).hash.slice(1)).get("url")).toBe(original.url);
 });
 
 test("a single-tab window explains why its active tab cannot be suspended", async () => {

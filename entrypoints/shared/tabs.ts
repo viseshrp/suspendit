@@ -1,3 +1,5 @@
+import { isSuspended, pageAddress, suspendedPage } from "./suspended";
+
 export type SuspendRequest =
 	| { type: "suspend"; scope: "tab" | "group" | "window"; id: number }
 	| { type: "suspend"; scope: "all" };
@@ -25,8 +27,9 @@ export function isSuspendRequest(value: unknown): value is SuspendRequest {
 
 export function skipReason(tab: chrome.tabs.Tab, bulk: boolean): string {
 	if (tab.id === undefined || tab.id < 0) return "Tab unavailable";
-	if (tab.discarded) return "Already suspended";
-	if (!/^(https?:|file:)/i.test(tab.pendingUrl ?? tab.url ?? "")) return "Browser page";
+	if (suspendedPage(tab.url)) return "Already suspended";
+	if (!pageAddress(tab.pendingUrl ?? tab.url ?? "")) return "Browser page";
+	if (tab.pendingUrl) return "Page is loading";
 	if (bulk && tab.active) return "Active tab";
 	if (bulk && tab.pinned) return "Pinned tab";
 	if (bulk && tab.audible) return "Playing audio";
@@ -37,7 +40,7 @@ export function awakeNeighbor(tab: chrome.tabs.Tab, tabs: chrome.tabs.Tab[]) {
 	return tabs
 		.filter((candidate) =>
 			candidate.id !== undefined && candidate.id !== tab.id &&
-			candidate.windowId === tab.windowId && !candidate.discarded &&
+			candidate.windowId === tab.windowId && !isSuspended(candidate) &&
 			candidate.status !== "unloaded",
 		)
 		.sort((a, b) => Math.abs(a.index - tab.index) - Math.abs(b.index - tab.index))[0];

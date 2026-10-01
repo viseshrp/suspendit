@@ -35,7 +35,7 @@ async function watchUpdate(page: Awaited<ReturnType<typeof target>>, selector: s
 	}, { selector, title });
 }
 
-// Real Chrome tabs, loaded from loopback and natively discarded before measurement.
+// Real Chrome tabs holding suspended-page metadata, unloaded by the production worker.
 // Keep at most 16 fixture pages loading at once to bound the test's memory use.
 // biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured fixture arguments.
 test("opening, searching, and live updates with 500 and 1000 tabs", async ({}, info) => {
@@ -58,15 +58,19 @@ test("opening, searching, and live updates with 500 and 1000 tabs", async ({}, i
 				await evaluate(worker, async ({ base, start, size }) => {
 					const ids = new Set<number>();
 					for (let index = start; index < start + size; index++) {
-						const tab = await chrome.tabs.create({ url: `${base}/Bench-${String(index).padStart(4, "0")}`, active: false });
+						const url = `${base}/Bench-${String(index).padStart(4, "0")}`;
+						const saved = `${chrome.runtime.getURL("suspended.html")}#${new URLSearchParams({ url, title: `Reference ${index}` })}`;
+						const tab = await chrome.tabs.create({ url: saved, active: false });
 						ids.add(tab.id as number);
 					}
-					const deadline = performance.now() + 5000;
-					while ((await chrome.tabs.query({})).some((tab) => ids.has(tab.id as number) && tab.status !== "complete")) {
-						if (performance.now() > deadline) throw new Error("Fixture pages did not finish loading");
+					const deadline = performance.now() + 8000;
+					while ((await chrome.tabs.query({})).some((tab) => ids.has(tab.id as number) && !tab.discarded)) {
+						if (performance.now() > deadline) {
+							const remaining = (await chrome.tabs.query({})).filter((tab) => ids.has(tab.id as number) && !tab.discarded);
+							throw new Error(`Fixture placeholders were not unloaded: ${JSON.stringify(remaining)}`);
+						}
 						await new Promise((resolve) => setTimeout(resolve, 25));
 					}
-					for (const id of ids) await chrome.tabs.discard(id);
 				}, { base, start: count, size });
 				count += size;
 			}

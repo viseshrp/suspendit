@@ -42,6 +42,7 @@ export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
 					for (const item of tabs) if (item.windowId === target.windowId) item.active = item.id === id;
 					target.discarded = false;
 				}
+				if (props.url) { target.url = props.url; target.discarded = false; }
 				return { ...target };
 			}),
 			discard: vi.fn(async (id: number) => {
