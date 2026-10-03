@@ -195,11 +195,20 @@
       ]
     },
     "plan_checkpoint": {
-      "type": "human_wait",
+      "type": "command",
       "needs": [
         "verify_plan_artifacts"
       ],
-      "prompt": "Operator must inspect PLAN_REVISION_VERIFICATION.md and confirm all required verdicts are Yes before allowing implementation. If any verdict is No, do not advance; return to critique/revision."
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        ".relay/scripts/verify-verdict.py",
+        "PLAN_REVISION_VERIFICATION.md",
+        "All previous concerns resolved",
+        "Documentation checkpoints complete",
+        "Ready for implementation"
+      ]
     },
     "implement": {
       "type": "agent",
@@ -325,11 +334,20 @@
       ]
     },
     "verification_checkpoint": {
-      "type": "human_wait",
+      "type": "command",
       "needs": [
         "verify_fixes_artifacts"
       ],
-      "prompt": "Operator must inspect REVIEW_FIX_VERIFICATION.md. Advance only when all required verdicts are Yes; otherwise return to review/fixes."
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        ".relay/scripts/verify-verdict.py",
+        "REVIEW_FIX_VERIFICATION.md",
+        "All valid blocking and non-blocking review findings resolved",
+        "Documentation checkpoints complete",
+        "Ready to finalize review/walkthrough docs"
+      ]
     },
     "refresh": {
       "type": "agent",
