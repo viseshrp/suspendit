@@ -8,6 +8,7 @@ Required handoff files must exist and contain nonempty UTF-8 text before the
 next agent starts. Planning and fix-verification checkpoints also require
 each canonical verdict in `## Verdict` to be `Yes`. Missing, duplicate,
 negative, or malformed verdicts fail the command and block downstream nodes.
+Fenced examples cannot supply a verdict or satisfy a checkpoint.
 For example, `- Ready for implementation: Yes` passes that named check;
 `- Ready for implementation: No` blocks it. Correct the upstream artifact
 before rerunning a failed checkpoint.

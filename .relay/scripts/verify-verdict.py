@@ -2,13 +2,33 @@
 
 import argparse
 from pathlib import Path
+import re
 import sys
+
+FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
+
+
+def prose_lines(lines: list[str]) -> list[str]:
+    """Omit fenced examples, including a quoted '## Verdict' template."""
+    visible = []
+    fence = ""
+    for line in lines:
+        match = FENCE_PATTERN.match(line)
+        if match:
+            marker, remainder = match.groups()
+            if not fence:
+                fence = marker
+            elif marker.startswith(fence) and not remainder.strip():
+                fence = ""
+        elif not fence:
+            visible.append(line)
+    return visible
 
 
 def check_verdict(path: Path, labels: list[str]) -> list[str]:
     """Read '- Ready for implementation: Yes' as an approved named verdict."""
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = prose_lines(path.read_text(encoding="utf-8").splitlines())
     except (OSError, UnicodeError) as error:
         return [f"Cannot read {path}: {error}"]
 
