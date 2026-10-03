@@ -31,6 +31,19 @@
         }
       }
     },
+    "explore_artifacts": {
+      "type": "command",
+      "needs": [
+        "explore"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['DRAFT_PLAN.md', 'INITIAL_OPUS_PLANNING_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
     "plan": {
       "type": "agent",
       "writes": true,
@@ -54,7 +67,20 @@
         }
       },
       "needs": [
-        "explore"
+        "explore_artifacts"
+      ]
+    },
+    "plan_artifacts": {
+      "type": "command",
+      "needs": [
+        "plan"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['FEATURE_SPEC_AND_PLAN.md', 'EXECUTION_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
     "critique": {
@@ -80,7 +106,20 @@
         }
       },
       "needs": [
-        "plan"
+        "plan_artifacts"
+      ]
+    },
+    "critique_artifacts": {
+      "type": "command",
+      "needs": [
+        "critique"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['PLAN_CRITIQUE.md', 'OPUS_PLAN_REVISION_REQUEST.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
     "revise": {
@@ -103,7 +142,20 @@
         }
       },
       "needs": [
-        "critique"
+        "critique_artifacts"
+      ]
+    },
+    "revise_artifacts": {
+      "type": "command",
+      "needs": [
+        "revise"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['PLAN_REVISION_SUMMARY.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
     "verify_plan": {
@@ -126,13 +178,26 @@
         }
       },
       "needs": [
-        "revise"
+        "revise_artifacts"
+      ]
+    },
+    "verify_plan_artifacts": {
+      "type": "command",
+      "needs": [
+        "verify_plan"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['PLAN_REVISION_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
     "plan_checkpoint": {
       "type": "human_wait",
       "needs": [
-        "verify_plan"
+        "verify_plan_artifacts"
       ],
       "prompt": "Operator must inspect PLAN_REVISION_VERIFICATION.md and confirm all required verdicts are Yes before allowing implementation. If any verdict is No, do not advance; return to critique/revision."
     },
@@ -184,10 +249,23 @@
         "implement"
       ]
     },
+    "review_artifacts": {
+      "type": "command",
+      "needs": [
+        "review"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['REVIEW.md', 'WALKTHROUGH.md', 'REVIEW_FIX_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
     "review_checkpoint": {
       "type": "human_wait",
       "needs": [
-        "review"
+        "review_artifacts"
       ],
       "prompt": "Operator must inspect the actual review findings and obtain owner decisions required by REVIEW_FIX_PROMPT.md before advancing to fixes."
     },
@@ -233,10 +311,23 @@
         "fix"
       ]
     },
+    "verify_fixes_artifacts": {
+      "type": "command",
+      "needs": [
+        "verify_fixes"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['REVIEW_FIX_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
     "verification_checkpoint": {
       "type": "human_wait",
       "needs": [
-        "verify_fixes"
+        "verify_fixes_artifacts"
       ],
       "prompt": "Operator must inspect REVIEW_FIX_VERIFICATION.md. Advance only when all required verdicts are Yes; otherwise return to review/fixes."
     },
@@ -308,10 +399,23 @@
         "tests"
       ]
     },
+    "test_audit_artifacts": {
+      "type": "command",
+      "needs": [
+        "test_audit"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; paths=['TEST_AUDIT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
     "human_test_review": {
       "type": "human_wait",
       "needs": [
-        "test_audit"
+        "test_audit_artifacts"
       ],
       "prompt": "Owner must review the audited test diff after phase 10 passes. Unresolved audit findings block completion."
     }
