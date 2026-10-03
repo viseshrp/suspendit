@@ -1,0 +1,16 @@
+{
+  "repository": "https://github.com/viseshrp/ai-coding-workflow",
+  "commit": "755222d312998028d8f6ff744cdc26873ebc85b0",
+  "sha256": {
+    "01_initial_exploration_any_model.md": "a52ade6fc393d32d9af3e679ab5ae2b8f599f2fd5f9b8af5d07a2922d7b5cad6",
+    "02_plan_critique_any_model.md": "f3c9864b5f92bb712eb01fd56f3d0fd451b379f5b6143c7d25698684c90f1403",
+    "03_plan_revision_verification_any_model.md": "90ef7b09b06f8d85bea3db32678e47ffc854c520827428902bfee546e5b57236",
+    "04_opus_review_branch.md": "287709e522806e970f9fadefc5eb6827822b22b51bfa4c5cc1f6474b41b90d13",
+    "05_opus_verify_review_fixes.md": "ca0efb231e65c0b2fd4ef5f404a02b451512f050eb6b7c462dd54cafa5e4b7b8",
+    "06_opus_refresh_review_and_walkthrough.md": "19e81ada81afe412ca2e3031b9908c6d49683e6523b0aa59dcddcec76a4f7dfa",
+    "07_human_code_walkthrough.md": "0a19b68248a4b9bee1c884272151ebc4c21d7cd039698a99dd90022608d87dac",
+    "08_implement_human_followup_any_model.md": "f055db0ae15b2738826a6d31c78ad56197103cae5504578ed51b2c5872f6682e",
+    "09_write_focused_tests_any_model.md": "a48803e56159517fbdfef40842e2b5bcd57594e5164525d9dede08018e0e8af6",
+    "10_test_audit_any_model.md": "81a3b2639d14f284644d09506d93bf4187dfa18729a1324886cd783bff5c920a"
+  }
+}

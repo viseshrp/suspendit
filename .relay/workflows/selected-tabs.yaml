@@ -1,0 +1,319 @@
+{
+  "version": 1,
+  "name": "SuspendIt selected tabs \u2014 canonical ten-phase workflow",
+  "inputs": {
+    "task": {
+      "type": "string",
+      "required": true
+    }
+  },
+  "nodes": {
+    "explore": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "codex"
+      ],
+      "model": "gpt-6-luna",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/01_initial_exploration_any_model.md"
+        }
+      ],
+      "outputs": {
+        "draft_plan": {
+          "exists": "DRAFT_PLAN.md"
+        },
+        "initial_opus_planning_prompt": {
+          "exists": "INITIAL_OPUS_PLANNING_PROMPT.md"
+        }
+      }
+    },
+    "plan": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/handoffs/plan.txt"
+        }
+      ],
+      "outputs": {
+        "feature_spec_and_plan": {
+          "exists": "FEATURE_SPEC_AND_PLAN.md"
+        },
+        "execution_prompt": {
+          "exists": "EXECUTION_PROMPT.md"
+        }
+      },
+      "needs": [
+        "explore"
+      ]
+    },
+    "critique": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "antigravity"
+      ],
+      "model": "gemini-3.8-flash-low",
+      "permission_profile": "auto_approve",
+      "prompts": [
+        {
+          "local": "prompts/source/02_plan_critique_any_model.md"
+        }
+      ],
+      "outputs": {
+        "plan_critique": {
+          "exists": "PLAN_CRITIQUE.md"
+        },
+        "opus_plan_revision_request": {
+          "exists": "OPUS_PLAN_REVISION_REQUEST.md"
+        }
+      },
+      "needs": [
+        "plan"
+      ]
+    },
+    "revise": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/handoffs/revise.txt"
+        }
+      ],
+      "outputs": {
+        "plan_revision_summary": {
+          "exists": "PLAN_REVISION_SUMMARY.md"
+        }
+      },
+      "needs": [
+        "critique"
+      ]
+    },
+    "verify_plan": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "antigravity"
+      ],
+      "model": "gemini-3.8-flash-low",
+      "permission_profile": "auto_approve",
+      "prompts": [
+        {
+          "local": "prompts/source/03_plan_revision_verification_any_model.md"
+        }
+      ],
+      "outputs": {
+        "plan_revision_verification": {
+          "exists": "PLAN_REVISION_VERIFICATION.md"
+        }
+      },
+      "needs": [
+        "revise"
+      ]
+    },
+    "plan_checkpoint": {
+      "type": "human_wait",
+      "needs": [
+        "verify_plan"
+      ],
+      "prompt": "Operator must inspect PLAN_REVISION_VERIFICATION.md and confirm all required verdicts are Yes before allowing implementation. If any verdict is No, do not advance; return to critique/revision."
+    },
+    "implement": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "codex"
+      ],
+      "model": "gpt-6-luna",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/handoffs/implement.txt"
+        }
+      ],
+      "outputs": {},
+      "needs": [
+        "plan_checkpoint"
+      ]
+    },
+    "review": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/04_opus_review_branch.md"
+        }
+      ],
+      "outputs": {
+        "review": {
+          "exists": "REVIEW.md"
+        },
+        "walkthrough": {
+          "exists": "WALKTHROUGH.md"
+        },
+        "review_fix_prompt": {
+          "exists": "REVIEW_FIX_PROMPT.md"
+        }
+      },
+      "needs": [
+        "implement"
+      ]
+    },
+    "review_checkpoint": {
+      "type": "human_wait",
+      "needs": [
+        "review"
+      ],
+      "prompt": "Operator must inspect the actual review findings and obtain owner decisions required by REVIEW_FIX_PROMPT.md before advancing to fixes."
+    },
+    "fix": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "codex"
+      ],
+      "model": "gpt-6-luna",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/handoffs/fix.txt"
+        }
+      ],
+      "outputs": {},
+      "needs": [
+        "review_checkpoint"
+      ]
+    },
+    "verify_fixes": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/05_opus_verify_review_fixes.md"
+        }
+      ],
+      "outputs": {
+        "review_fix_verification": {
+          "exists": "REVIEW_FIX_VERIFICATION.md"
+        }
+      },
+      "needs": [
+        "fix"
+      ]
+    },
+    "verification_checkpoint": {
+      "type": "human_wait",
+      "needs": [
+        "verify_fixes"
+      ],
+      "prompt": "Operator must inspect REVIEW_FIX_VERIFICATION.md. Advance only when all required verdicts are Yes; otherwise return to review/fixes."
+    },
+    "refresh": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/06_opus_refresh_review_and_walkthrough.md"
+        }
+      ],
+      "outputs": {},
+      "needs": [
+        "verification_checkpoint"
+      ]
+    },
+    "human_walkthrough": {
+      "type": "human_wait",
+      "needs": [
+        "refresh"
+      ],
+      "prompt": "Owner must complete phase 07 human review using the canonical prompt. Do not treat implementation authorization as RESOLVE or AGREE. Approved follow-up work must complete phase 08 before advancing to tests."
+    },
+    "tests": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "codex"
+      ],
+      "model": "gpt-6-luna",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/09_write_focused_tests_any_model.md"
+        }
+      ],
+      "outputs": {},
+      "needs": [
+        "human_walkthrough"
+      ]
+    },
+    "test_audit": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "antigravity"
+      ],
+      "model": "gemini-3.8-flash-low",
+      "permission_profile": "auto_approve",
+      "prompts": [
+        {
+          "local": "prompts/source/10_test_audit_any_model.md"
+        }
+      ],
+      "outputs": {
+        "test_audit": {
+          "exists": "TEST_AUDIT.md"
+        }
+      },
+      "needs": [
+        "tests"
+      ]
+    },
+    "human_test_review": {
+      "type": "human_wait",
+      "needs": [
+        "test_audit"
+      ],
+      "prompt": "Owner must review the audited test diff after phase 10 passes. Unresolved audit findings block completion."
+    }
+  }
+}

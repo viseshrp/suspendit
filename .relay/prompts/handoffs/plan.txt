@@ -1,0 +1,1 @@
+Read INITIAL_OPUS_PLANNING_PROMPT.md in the repository root completely. Execute its contents as your sole task prompt. Do not replace or supplement its contract.
