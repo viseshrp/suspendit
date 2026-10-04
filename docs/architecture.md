@@ -53,8 +53,9 @@ The worker registers **Suspend this tab** and **Suspend selected tabs** with the
 and HTTP, HTTPS, and file document patterns. Chromium's schema defines `all` as excluding the
 tab strip, while Chrome's reference page omits that exclusion. The worker adds the `tab` context
 when `chrome.contextMenus.ContextType` lists it (Chrome 150 and newer), because older versions
-reject it. A selected-tabs click targets the highlighted tabs in the clicked tab's window. The
-locked `@types/chrome` lacks `tab`, so the worker declares that one enum value.
+reject it. A selected-tabs click targets the highlighted tabs in the clicked tab's window.
+The locked `@types/chrome` 0.1.37 lacks `tab`, so the worker declares that enum value.
+Version 0.1.43 adds `TAB`; remove this declaration when updating the lockfile to 0.1.43 or newer.
 
 ## Permissions
 

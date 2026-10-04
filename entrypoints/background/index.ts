@@ -3,8 +3,8 @@ import { suspendedPage } from "../shared/suspended";
 import { isSuspendRequest, resultMessage, type SuspendRequest } from "../shared/tabs";
 import { suspendTabs } from "./suspend";
 
-// @types/chrome 0.1.37 predates Chromium's tab-strip context, which the
-// contextMenus schema defines as "tab".
+// @types/chrome 0.1.37 lacks the tab-strip context; 0.1.43 adds TAB.
+// Remove this block when updating the lockfile to 0.1.43 or newer.
 declare global {
 	namespace chrome.contextMenus {
 		enum ContextType { TAB = "tab" }
