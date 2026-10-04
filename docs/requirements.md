@@ -10,7 +10,7 @@
 
 ## Suspension behavior
 
-Select an existing awake neighbor before individually discarding an active tab. If there is no awake neighbor in the same window, explain the limitation. Bulk actions protect active, pinned, and audible tabs. An explicit individual action may suspend a pinned or audible tab.
+Select an existing awake neighbor before individually discarding an active tab. If there is no awake neighbor in the same window, explain the limitation. Bulk actions protect active, pinned, and audible tabs. Suspending selected tabs acts on the tabs Chrome highlights in one window and is a bulk action. An explicit individual action may suspend a pinned or audible tab.
 
 Selecting a saved tab shows its placeholder; its Resume button reloads the original address.
 The popup also resumes pages. Keep the tab, window, group, and pin state. Discard before

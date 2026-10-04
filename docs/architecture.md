@@ -19,15 +19,16 @@ newer metadata is kept when it arrives during a query. The popup releases this s
 
 The popup sends a validated scope request to the worker, which re-queries tabs, applies
 eligibility rules, and invokes `chrome.tabs.discard(tabId)` before navigating the same tab to
-`suspended.html`. Discard flushes the old document from the back/forward cache. Up to four
+`suspended.html`. A selected-tabs request names a window; the worker queries that window's
+highlighted tabs. Discard flushes the old document from the back/forward cache. Up to four
 suspensions run at once. Previously discarded tabs proceed directly to the placeholder.
 Each result is counted separately, so one closed or refused tab does not stop a bulk action.
 The worker finishes requests independently of the popup's lifetime.
 
 Only individual suspension may change the active tab. It selects an existing awake neighbor
-in the same window. Bulk actions keep active, pinned, and audible tabs awake. Scope membership
-and protection state are rechecked immediately before each action. Chrome makes the final
-discard decision.
+in the same window. Bulk actions keep active, pinned, and audible tabs awake. Scope membership,
+including highlighting for selected tabs, and protection state are rechecked immediately before
+each action. Chrome makes the final discard decision.
 
 The placeholder URL fragment holds the original address and title using `URLSearchParams`.
 Only HTTP, HTTPS, and file addresses are accepted. The popup decodes these values for title,
