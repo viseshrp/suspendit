@@ -7,6 +7,7 @@ const search = document.getElementById("search") as HTMLInputElement;
 const status = document.getElementById("status") as HTMLParagraphElement;
 const suspendWindow = document.getElementById("suspend-window") as HTMLButtonElement;
 const suspendAll = document.getElementById("suspend-all") as HTMLButtonElement;
+const suspendSelected = document.getElementById("suspend-selected") as HTMLButtonElement;
 let tabs: chrome.tabs.Tab[] = [];
 let groups: chrome.tabGroups.TabGroup[] = [];
 let currentWindowId = -1;
@@ -32,6 +33,7 @@ function render() {
 	const suspended = tabs.filter(isSuspended).length;
 	(document.getElementById("counts") as HTMLElement).textContent = `${tabs.length} ${tabs.length === 1 ? "tab" : "tabs"} · ${suspended} suspended`;
 	suspendWindow.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && !skipReason(tab, true));
+	suspendSelected.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && tab.highlighted && !skipReason(tab, true));
 	suspendAll.disabled = busy || !tabs.some((tab) => !skipReason(tab, true));
 	const query = search.value.trim().toLowerCase();
 	renderWindows(tabs, groups, currentWindowId, query,
@@ -65,6 +67,7 @@ async function refresh() {
 	} catch (error) {
 		if (version !== refreshVersion) return;
 		suspendWindow.disabled = true;
+		suspendSelected.disabled = true;
 		suspendAll.disabled = true;
 		showStatus(`Could not read tabs. ${getErrorMessage(error)}`, true);
 	}
@@ -128,6 +131,7 @@ async function openTab(id: number) {
 }
 
 suspendWindow.addEventListener("click", () => { void suspend({ type: "suspend", scope: "window", id: currentWindowId }); });
+suspendSelected.addEventListener("click", () => { void suspend({ type: "suspend", scope: "selected", id: currentWindowId }); });
 suspendAll.addEventListener("click", () => { void suspend({ type: "suspend", scope: "all" }); });
 search.addEventListener("input", () => {
 	searchCollapsed.clear();

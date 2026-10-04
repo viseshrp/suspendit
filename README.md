@@ -33,7 +33,7 @@ Requires Chrome 120 or newer.
 
 - Click the moon beside a tab to suspend it. Search by page title, URL, or group name.
 - Collapse windows or groups with their chevrons. Search expands matching sections; clearing it restores your collapsed sections.
-- Use a group's or window's **Suspend** button, or **Suspend all windows**. These actions apply to the entire group/window even while searching.
+- Use a group's or window's **Suspend** button, **Suspend selected tabs**, or **Suspend all windows**. **Suspend selected tabs** applies to the tabs highlighted in the popup's window (Ctrl- or Shift-click tabs to highlight several). These actions apply to the entire group, window, or selection even while searching.
 - Right-click a web page and choose **Suspend this tab**.
 - Select a suspended tab and click **Resume page**, or click its title in the popup, to load the original page again.
 

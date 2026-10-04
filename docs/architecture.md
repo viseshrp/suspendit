@@ -6,7 +6,8 @@ templates. Titles and URLs are assigned with `textContent`. Site icons use Chrom
 `_favicon` endpoint, with lazy loading and a local fallback. Search and collapsed-window/group
 state live only while the popup is open.
 
-The header, search, bulk actions, and status remain fixed around one scrolling tab list.
+The header, search, bulk actions, and status remain fixed around one scrolling tab list. The
+selected-tabs button is enabled when an eligible highlighted tab exists in the popup's window.
 Group and window chevrons collapse sections in the popup. Search temporarily expands matching
 sections and restores the previous collapsed state when cleared.
 
