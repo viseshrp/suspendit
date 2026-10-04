@@ -49,13 +49,20 @@ There are no automatic suspension timers, content scripts, background polling, s
 runtime dependencies, or network services. Chrome owns process cleanup; the browser tests
 measure actual renderer RSS rather than inferring memory release from a tab flag.
 
+The worker registers **Suspend this tab** and **Suspend selected tabs** with the `all` context
+and HTTP, HTTPS, and file document patterns. Chromium's schema defines `all` as excluding the
+tab strip, while Chrome's reference page omits that exclusion. The worker adds the `tab` context
+when `chrome.contextMenus.ContextType` lists it (Chrome 150 and newer), because older versions
+reject it. A selected-tabs click targets the highlighted tabs in the clicked tab's window. The
+locked `@types/chrome` lacks `tab`, so the worker declares that one enum value.
+
 ## Permissions
 
 | Permission | Purpose |
 | --- | --- |
 | `tabs` | Read titles and URLs for the popup |
 | `tabGroups` | Read native group names and colors |
-| `contextMenus` | Add the on-demand page action |
+| `contextMenus` | Add on-demand page, toolbar, and tab-strip actions |
 | `favicon` | Display site icons through Chrome's favicon service |
 
 The extension requests no host permissions. Browser-level metadata and navigation APIs provide
@@ -64,4 +71,5 @@ the other required operations.
 Sources: [Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs),
 [Tab Groups API](https://developer.chrome.com/docs/extensions/reference/api/tabGroups),
 [Context Menus API](https://developer.chrome.com/docs/extensions/reference/api/contextMenus),
+[Chromium context menu schema](https://github.com/chromium/chromium/blob/main/chrome/common/extensions/api/context_menus.json),
 [Favicon service](https://developer.chrome.com/docs/extensions/how-to/ui/favicons).
