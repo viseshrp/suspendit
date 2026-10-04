@@ -24,10 +24,16 @@
       ],
       "outputs": {
         "draft_plan": {
-          "exists": "DRAFT_PLAN.md"
+          "label": {
+            "artifact": "DRAFT_PLAN.md",
+            "label": "Created by"
+          }
         },
         "initial_opus_planning_prompt": {
-          "exists": "INITIAL_OPUS_PLANNING_PROMPT.md"
+          "label": {
+            "artifact": "INITIAL_OPUS_PLANNING_PROMPT.md",
+            "label": "Created by"
+          }
         }
       }
     },
@@ -60,10 +66,16 @@
       ],
       "outputs": {
         "feature_spec_and_plan": {
-          "exists": "FEATURE_SPEC_AND_PLAN.md"
+          "label": {
+            "artifact": "FEATURE_SPEC_AND_PLAN.md",
+            "label": "Created by"
+          }
         },
         "execution_prompt": {
-          "exists": "EXECUTION_PROMPT.md"
+          "label": {
+            "artifact": "EXECUTION_PROMPT.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
@@ -99,10 +111,16 @@
       ],
       "outputs": {
         "plan_critique": {
-          "exists": "PLAN_CRITIQUE.md"
+          "label": {
+            "artifact": "PLAN_CRITIQUE.md",
+            "label": "Created by"
+          }
         },
         "opus_plan_revision_request": {
-          "exists": "OPUS_PLAN_REVISION_REQUEST.md"
+          "label": {
+            "artifact": "OPUS_PLAN_REVISION_REQUEST.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
@@ -138,7 +156,10 @@
       ],
       "outputs": {
         "plan_revision_summary": {
-          "exists": "PLAN_REVISION_SUMMARY.md"
+          "label": {
+            "artifact": "PLAN_REVISION_SUMMARY.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
@@ -174,7 +195,10 @@
       ],
       "outputs": {
         "plan_revision_verification": {
-          "exists": "PLAN_REVISION_VERIFICATION.md"
+          "label": {
+            "artifact": "PLAN_REVISION_VERIFICATION.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
@@ -245,13 +269,22 @@
       ],
       "outputs": {
         "review": {
-          "exists": "REVIEW.md"
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
         },
         "walkthrough": {
-          "exists": "WALKTHROUGH.md"
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
         },
         "review_fix_prompt": {
-          "exists": "REVIEW_FIX_PROMPT.md"
+          "label": {
+            "artifact": "REVIEW_FIX_PROMPT.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
@@ -313,7 +346,10 @@
       ],
       "outputs": {
         "review_fix_verification": {
-          "exists": "REVIEW_FIX_VERIFICATION.md"
+          "label": {
+            "artifact": "REVIEW_FIX_VERIFICATION.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
@@ -363,7 +399,20 @@
           "local": "prompts/source/06_opus_refresh_review_and_walkthrough.md"
         }
       ],
-      "outputs": {},
+      "outputs": {
+        "review": {
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
+        },
+        "walkthrough": {
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
+        }
+      },
       "needs": [
         "verification_checkpoint"
       ]
@@ -410,7 +459,10 @@
       ],
       "outputs": {
         "test_audit": {
-          "exists": "TEST_AUDIT.md"
+          "label": {
+            "artifact": "TEST_AUDIT.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [

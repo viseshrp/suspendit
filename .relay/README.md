@@ -5,7 +5,13 @@ Claude Opus, and Antigravity. `workflow-source.json` records the upstream
 commit and hashes; the copies in `prompts/source/` retain their original text.
 
 Required handoff files must exist and contain nonempty UTF-8 text before the
-next agent starts. Planning and fix-verification checkpoints also require
+next agent starts. Each report output uses a `label` selector for its
+`Created by` metadata. For example, `Created by: Claude Opus 5.5` produces the
+value `Claude Opus 5.5` and retains the complete report with its SHA-256 hash
+for inspection through Relay's artifact API. An `exists` output returns only
+a boolean and does not retain an ignored report.
+
+Planning and fix-verification checkpoints also require
 each canonical verdict in `## Verdict` to be `Yes`. Missing, duplicate,
 negative, or malformed verdicts fail the command and block downstream nodes.
 Fenced examples cannot supply a verdict or satisfy a checkpoint.
