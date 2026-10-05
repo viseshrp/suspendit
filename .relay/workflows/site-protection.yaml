@@ -241,6 +241,18 @@
                 "artifact": "PLAN_REVISION_SUMMARY.md",
                 "label": "Created by"
               }
+            },
+            "feature_spec_and_plan": {
+              "label": {
+                "artifact": "FEATURE_SPEC_AND_PLAN.md",
+                "label": "Created by"
+              }
+            },
+            "execution_prompt": {
+              "label": {
+                "artifact": "EXECUTION_PROMPT.md",
+                "label": "Created by"
+              }
             }
           },
           "needs": [],
@@ -1378,7 +1390,93 @@
         "-u",
         "-c",
         "from pathlib import Path\nimport re\nimport subprocess\nimport sys\n\nlabels = (\"All audit findings resolved\", \"Documentation checkpoints complete\", \"Ready to complete workflow\")\nsubprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", \"TEST_AUDIT.md\", *labels], check=True)\ntext = Path(\"TEST_AUDIT.md\").read_text(encoding=\"utf-8\")\nsections = re.split(r\"(?m)^#{1,6}[ \\t]+\", text)\n# \"## Blocking Issues\\nNone.\" passes; \"## Blocking Issues\\n- A finding\" fails.\nfor heading in (\"Blocking Issues\", \"Non-Blocking Issues\"):\n    bodies = [body.strip() for section in sections for title, separator, body in [section.partition(\"\\n\")] if separator and title.strip() == heading]\n    if bodies != [\"None.\"]:\n        raise SystemExit(\"Audit is incomplete or still contains findings under \" + heading + \".\")\nprint(\"Independent test audit passed; documentation checks passed; no human approval required.\")\n"
-      ]
+      ],
+      "outputs": {
+        "draft_plan": {
+          "label": {
+            "artifact": "DRAFT_PLAN.md",
+            "label": "Created by"
+          }
+        },
+        "initial_opus_planning_prompt": {
+          "label": {
+            "artifact": "INITIAL_OPUS_PLANNING_PROMPT.md",
+            "label": "Created by"
+          }
+        },
+        "feature_spec_and_plan": {
+          "label": {
+            "artifact": "FEATURE_SPEC_AND_PLAN.md",
+            "label": "Created by"
+          }
+        },
+        "execution_prompt": {
+          "label": {
+            "artifact": "EXECUTION_PROMPT.md",
+            "label": "Created by"
+          }
+        },
+        "plan_critique": {
+          "label": {
+            "artifact": "PLAN_CRITIQUE.md",
+            "label": "Created by"
+          }
+        },
+        "opus_plan_revision_request": {
+          "label": {
+            "artifact": "OPUS_PLAN_REVISION_REQUEST.md",
+            "label": "Created by"
+          }
+        },
+        "plan_revision_summary": {
+          "label": {
+            "artifact": "PLAN_REVISION_SUMMARY.md",
+            "label": "Created by"
+          }
+        },
+        "plan_revision_verification": {
+          "label": {
+            "artifact": "PLAN_REVISION_VERIFICATION.md",
+            "label": "Created by"
+          }
+        },
+        "review": {
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
+        },
+        "walkthrough": {
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
+        },
+        "review_fix_prompt": {
+          "label": {
+            "artifact": "REVIEW_FIX_PROMPT.md",
+            "label": "Created by"
+          }
+        },
+        "review_fix_verification": {
+          "label": {
+            "artifact": "REVIEW_FIX_VERIFICATION.md",
+            "label": "Created by"
+          }
+        },
+        "test_audit": {
+          "label": {
+            "artifact": "TEST_AUDIT.md",
+            "label": "Created by"
+          }
+        },
+        "e2e_verification": {
+          "label": {
+            "artifact": "E2E_VERIFICATION.md",
+            "label": "Created by"
+          }
+        }
+      }
     }
   }
 }
