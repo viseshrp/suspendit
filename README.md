@@ -3,7 +3,7 @@
 [![CI](https://github.com/viseshrp/suspendit/actions/workflows/ci.yml/badge.svg)](https://github.com/viseshrp/suspendit/actions/workflows/ci.yml)
 
 Suspend individual tabs, Chrome tab groups, a window, or every window.
-An English-only popup, a page context menu, and no runtime dependencies.
+An English-only popup, context menus, and no runtime dependencies.
 
 SuspendIt unloads each site and replaces it with a small local page. The original address and
 title stay available, and **Resume page** brings the site back. The placeholder also unloads
@@ -33,8 +33,8 @@ Requires Chrome 120 or newer.
 
 - Click the moon beside a tab to suspend it. Search by page title, URL, or group name.
 - Collapse windows or groups with their chevrons. Search expands matching sections; clearing it restores your collapsed sections.
-- Use a group's or window's **Suspend** button, or **Suspend all windows**. These actions apply to the entire group/window even while searching.
-- Right-click a web page and choose **Suspend this tab**.
+- Use a group's or window's **Suspend** button, **Suspend selected tabs**, or **Suspend all windows**. **Suspend selected tabs** applies to the tabs highlighted in the popup's window (Ctrl- or Shift-click tabs to highlight several). These actions apply to the entire group, window, or selection even while searching.
+- Right-click a web page, link, image, selection, or the SuspendIt toolbar icon and choose **Suspend this tab** or **Suspend selected tabs**. Chrome 150 and newer also show both in the tab strip's right-click menu. With two items, Chrome groups them under **SuspendIt** in page and tab-strip menus.
 - Select a suspended tab and click **Resume page**, or click its title in the popup, to load the original page again.
 
 Search and bulk controls stay visible while the tab list scrolls. Site icons come from Chrome.
@@ -56,7 +56,7 @@ A failed context-menu action places **!** on the toolbar icon; hover over it for
 
 | Path | Purpose |
 | --- | --- |
-| `entrypoints/background/` | Native discard requests and page context menu |
+| `entrypoints/background/` | Native discard requests and context menus |
 | `entrypoints/popup/` | Tab controls, written in HTML/CSS/TypeScript |
 | `entrypoints/suspended/` | Lightweight local placeholder and Resume button |
 | `entrypoints/shared/` | Tab rules, result text, theme, and reused utility functions |

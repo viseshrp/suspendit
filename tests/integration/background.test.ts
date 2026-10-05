@@ -10,13 +10,26 @@ it("registers native context menu on install/startup and reports registration er
 	registerListeners();
 	mock.runtime.onInstalled.emit();
 	await vi.waitFor(() => expect(mock.contextMenus.create).toHaveBeenCalled());
-	expect(mock.contextMenus.create.mock.calls[0][0]).toMatchObject({ id: "suspend-tab", title: "Suspend this tab", contexts: ["all"] });
+	expect(mock.contextMenus.create.mock.calls.map(([properties]) => properties)).toMatchObject([
+		{ id: "suspend-tab", title: "Suspend this tab", contexts: ["all"] },
+		{ id: "suspend-selected-tabs", title: "Suspend selected tabs", contexts: ["all"] },
+	]);
 	mock.runtime.onStartup.emit();
 	await vi.waitFor(() => expect(mock.contextMenus.removeAll).toHaveBeenCalledTimes(2));
 	const log = vi.spyOn(console, "error").mockImplementation(() => {});
 	mock.runtime.lastError = { message: "Menu unavailable" };
 	await createContextMenu();
 	expect(log).toHaveBeenCalledWith("Menu unavailable");
+});
+
+it("adds the tab-strip context when Chrome exposes it", async () => {
+	const { mock } = createMockChrome();
+	Object.assign(mock.contextMenus, { ContextType: { TAB: "tab" } });
+	await createContextMenu();
+	expect(mock.contextMenus.create.mock.calls.map(([properties]) => properties)).toMatchObject([
+		{ id: "suspend-tab", contexts: ["all", "tab"] },
+		{ id: "suspend-selected-tabs", contexts: ["all", "tab"] },
+	]);
 });
 
 it("routes native page-menu clicks and exposes failure in the toolbar tooltip", async () => {
@@ -38,8 +51,21 @@ it("suspends menu targets and clears an earlier failure badge", async () => {
 	expect(mock.action.setTitle).toHaveBeenCalledWith({ tabId: 1, title: "SuspendIt" });
 });
 
+it("routes selected-menu suspension through the clicked tab's window", async () => {
+	const clickedTab = tab(1, { windowId: 2, active: true, highlighted: true });
+	const { mock } = createMockChrome([
+		clickedTab,
+		tab(2, { windowId: 2, highlighted: true }),
+		tab(3, { windowId: 2 }),
+		tab(4, { windowId: 1, highlighted: true }),
+	]);
+	await suspendFromMenu({ menuItemId: "suspend-selected-tabs", editable: false }, clickedTab);
+	expect(mock.tabs.query).toHaveBeenCalledWith({ windowType: "normal", windowId: 2, highlighted: true });
+	expect(mock.tabs.discard.mock.calls.flat()).toEqual([2]);
+});
+
 it("accepts valid popup requests and ignores other origins or invalid messages", async () => {
-	const { mock } = createMockChrome([tab(1)]);
+	const { mock } = createMockChrome([tab(1), tab(2, { highlighted: true })]);
 	registerListeners();
 	const sender = { id: "test-id", url: "chrome-extension://test-id/popup.html" };
 	const request = { type: "suspend", scope: "tab", id: 1 };
@@ -49,6 +75,9 @@ it("accepts valid popup requests and ignores other origins or invalid messages",
 	expect(mock.runtime.onMessage.emit(null, sender, respond)).toEqual([undefined]);
 	expect(mock.runtime.onMessage.emit(request, sender, respond)).toEqual([true]);
 	await vi.waitFor(() => expect(respond).toHaveBeenCalledWith({ suspended: 1, skipped: 0, failed: 0, errors: [], tabId: 1 }));
+	const selectedRespond = vi.fn();
+	expect(mock.runtime.onMessage.emit({ type: "suspend", scope: "selected", id: 1 }, sender, selectedRespond)).toEqual([true]);
+	await vi.waitFor(() => expect(selectedRespond).toHaveBeenCalledWith({ suspended: 1, skipped: 0, failed: 0, errors: [] }));
 });
 
 it("uses the tab ID Chrome returns when native discard replaces the tab's contents", async () => {

@@ -6,7 +6,8 @@ templates. Titles and URLs are assigned with `textContent`. Site icons use Chrom
 `_favicon` endpoint, with lazy loading and a local fallback. Search and collapsed-window/group
 state live only while the popup is open.
 
-The header, search, bulk actions, and status remain fixed around one scrolling tab list.
+The header, search, bulk actions, and status remain fixed around one scrolling tab list. The
+selected-tabs button is enabled when an eligible highlighted tab exists in the popup's window.
 Group and window chevrons collapse sections in the popup. Search temporarily expands matching
 sections and restores the previous collapsed state when cleared.
 
@@ -19,15 +20,16 @@ newer metadata is kept when it arrives during a query. The popup releases this s
 
 The popup sends a validated scope request to the worker, which re-queries tabs, applies
 eligibility rules, and invokes `chrome.tabs.discard(tabId)` before navigating the same tab to
-`suspended.html`. Discard flushes the old document from the back/forward cache. Up to four
+`suspended.html`. A selected-tabs request names a window; the worker queries that window's
+highlighted tabs. Discard flushes the old document from the back/forward cache. Up to four
 suspensions run at once. Previously discarded tabs proceed directly to the placeholder.
 Each result is counted separately, so one closed or refused tab does not stop a bulk action.
 The worker finishes requests independently of the popup's lifetime.
 
 Only individual suspension may change the active tab. It selects an existing awake neighbor
-in the same window. Bulk actions keep active, pinned, and audible tabs awake. Scope membership
-and protection state are rechecked immediately before each action. Chrome makes the final
-discard decision.
+in the same window. Bulk actions keep active, pinned, and audible tabs awake. Scope membership,
+including highlighting for selected tabs, and protection state are rechecked immediately before
+each action. Chrome makes the final discard decision.
 
 The placeholder URL fragment holds the original address and title using `URLSearchParams`.
 Only HTTP, HTTPS, and file addresses are accepted. The popup decodes these values for title,
@@ -47,13 +49,21 @@ There are no automatic suspension timers, content scripts, background polling, s
 runtime dependencies, or network services. Chrome owns process cleanup; the browser tests
 measure actual renderer RSS rather than inferring memory release from a tab flag.
 
+The worker registers **Suspend this tab** and **Suspend selected tabs** with the `all` context
+and HTTP, HTTPS, and file document patterns. Chromium's schema defines `all` as excluding the
+tab strip, while Chrome's reference page omits that exclusion. The worker adds the `tab` context
+when `chrome.contextMenus.ContextType` lists it (Chrome 150 and newer), because older versions
+reject it. A selected-tabs click targets the highlighted tabs in the clicked tab's window.
+The locked `@types/chrome` 0.1.37 lacks `tab`, so the worker declares that enum value.
+Version 0.1.43 adds `TAB`; remove this declaration when updating the lockfile to 0.1.43 or newer.
+
 ## Permissions
 
 | Permission | Purpose |
 | --- | --- |
 | `tabs` | Read titles and URLs for the popup |
 | `tabGroups` | Read native group names and colors |
-| `contextMenus` | Add the on-demand page action |
+| `contextMenus` | Add on-demand page, toolbar, and tab-strip actions |
 | `favicon` | Display site icons through Chrome's favicon service |
 
 The extension requests no host permissions. Browser-level metadata and navigation APIs provide
@@ -62,4 +72,5 @@ the other required operations.
 Sources: [Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs),
 [Tab Groups API](https://developer.chrome.com/docs/extensions/reference/api/tabGroups),
 [Context Menus API](https://developer.chrome.com/docs/extensions/reference/api/contextMenus),
+[Chromium context menu schema](https://github.com/chromium/chromium/blob/main/chrome/common/extensions/api/context_menus.json),
 [Favicon service](https://developer.chrome.com/docs/extensions/how-to/ui/favicons).
