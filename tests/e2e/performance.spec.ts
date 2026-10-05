@@ -36,7 +36,7 @@ async function watchUpdate(page: Awaited<ReturnType<typeof target>>, selector: s
 }
 
 // Real Chrome tabs holding suspended-page metadata, unloaded by the production worker.
-// Keep at most 16 fixture pages loading at once to bound the test's memory use.
+// Keep at most four fixture pages loading until their URLs commit and the worker unloads them.
 // biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured fixture arguments.
 test("opening, searching, and live updates with 500 and 1000 tabs", async ({}, info) => {
 	test.setTimeout(180_000);
@@ -54,24 +54,24 @@ test("opening, searching, and live updates with 500 and 1000 tabs", async ({}, i
 		let count = 1;
 		for (const total of [500, 1000]) {
 			while (count < total) {
-				const size = Math.min(16, total - count);
-				await evaluate(worker, async ({ base, start, size }) => {
-					const ids = new Set<number>();
+				const size = Math.min(4, total - count);
+				const created = await evaluate(worker, async ({ base, start, size }) => {
+					const tabs: { id: number; url: string }[] = [];
 					for (let index = start; index < start + size; index++) {
 						const url = `${base}/Bench-${String(index).padStart(4, "0")}`;
 						const saved = `${chrome.runtime.getURL("suspended.html")}#${new URLSearchParams({ url, title: `Reference ${index}` })}`;
 						const tab = await chrome.tabs.create({ url: saved, active: false });
-						ids.add(tab.id as number);
+						tabs.push({ id: tab.id as number, url: saved });
 					}
-					const deadline = performance.now() + 8000;
-					while ((await chrome.tabs.query({})).some((tab) => ids.has(tab.id as number) && !tab.discarded)) {
-						if (performance.now() > deadline) {
-							const remaining = (await chrome.tabs.query({})).filter((tab) => ids.has(tab.id as number) && !tab.discarded);
-							throw new Error(`Fixture placeholders were not unloaded: ${JSON.stringify(remaining)}`);
-						}
-						await new Promise((resolve) => setTimeout(resolve, 25));
-					}
+					return tabs;
 				}, { base, start: count, size });
+				await expect.poll(() => evaluate(worker, async (ids) => {
+					const tabs = await Promise.all(ids.map((id) => chrome.tabs.get(id)));
+					return tabs.map((tab) => ({ id: tab.id, url: tab.url, pendingUrl: tab.pendingUrl ?? "", discarded: tab.discarded }));
+				}, created.map((tab) => tab.id)), {
+					timeout: 8000,
+					message: "Fixture placeholders must commit and unload before creating more tabs",
+				}).toEqual(created.map((tab) => ({ ...tab, pendingUrl: "", discarded: true })));
 				count += size;
 			}
 			const groupId = await evaluate(worker, async () => {

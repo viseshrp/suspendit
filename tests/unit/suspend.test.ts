@@ -1,20 +1,27 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { suspendTabs } from "../../entrypoints/background/suspend";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { suspendedPage, suspendedUrl } from "../../entrypoints/shared/suspended";
 import { awakeNeighbor, isSuspendRequest, resultMessage, skipReason } from "../../entrypoints/shared/tabs";
 import { getErrorMessage, runWithConcurrency } from "../../entrypoints/shared/utils";
 import { createMockChrome, tab } from "../helpers/mock_chrome";
 
-afterEach(() => vi.unstubAllGlobals());
+let suspendTabs: typeof import("../../entrypoints/background/suspend").suspendTabs;
+
+beforeEach(async () => {
+	vi.resetModules();
+	({ suspendTabs } = await import("../../entrypoints/background/suspend"));
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("suspension", () => {
-	it("discards before replacing the page and preserves its ID and group", async () => {
-		const { mock, tabs } = createMockChrome([tab(1, { pinned: true, audible: true, groupId: 7 })]);
+	it("individually suspends a protected site while preserving its ID, group, and pin", async () => {
+		const { mock, tabs } = createMockChrome([tab(1, { pinned: true, audible: true, groupId: 7 })], { protectedSites: ["example.com"] });
+		mock.storage.local.get.mockRejectedValue(new Error("Storage unavailable"));
 		expect(await suspendTabs({ type: "suspend", scope: "tab", id: 1 })).toEqual({ suspended: 1, skipped: 0, failed: 0, errors: [], tabId: 1 });
 		expect(mock.tabs.discard).toHaveBeenCalledWith(1);
 		expect(mock.tabs.discard.mock.invocationCallOrder[0]).toBeLessThan(mock.tabs.update.mock.invocationCallOrder[0]);
 		expect(suspendedPage(tabs[0].url)).toEqual({ url: "https://example.com/1", title: "Tab 1" });
 		expect(tabs[0]).toMatchObject({ id: 1, groupId: 7, pinned: true });
+		expect(mock.storage.local.get).not.toHaveBeenCalled();
 	});
 	it("selects an existing awake neighbor before discarding an active tab", async () => {
 		const { mock, tabs } = createMockChrome([tab(1, { active: true }), tab(2, { discarded: true }), tab(3), tab(4, { windowId: 2 })]);
@@ -31,12 +38,74 @@ describe("suspension", () => {
 		expect(result.errors[0]).toContain("Keep another tab awake");
 		expect(mock.tabs.discard).not.toHaveBeenCalled();
 	});
-	it("protects active, pinned, audio, browser, and placeholder tabs in every window", async () => {
+	it("skips active, pinned, audio, browser, and placeholder tabs in every window", async () => {
 		const { mock, tabs } = createMockChrome([tab(1, { active: true }), tab(2, { pinned: true }), tab(3, { audible: true }), tab(4, { discarded: true }), tab(5, { url: "chrome://settings" }), tab(6), tab(7, { windowId: 2 }), tab(8, { windowId: 2, active: true })]);
 		tabs[3].url = suspendedUrl(tabs[3]);
 		expect(await suspendTabs({ type: "suspend", scope: "all" })).toEqual({ suspended: 2, skipped: 6, failed: 0, errors: [] });
 		expect(mock.tabs.discard.mock.calls.flat()).toEqual([6, 7]);
 		expect(mock.tabs.update).toHaveBeenCalledTimes(2);
+	});
+	it.each(["group", "window", "selected", "all"] as const)("skips only the protected hostname in a %s action", async (scope) => {
+		const { mock, tabs } = createMockChrome([
+			tab(1, { groupId: 1, highlighted: true, url: "https://Docs.Example.com:8443/edit" }),
+			tab(2, { groupId: 1, highlighted: true, url: "http://docs.example.com/view" }),
+			tab(3, { groupId: 1, highlighted: true, url: "https://other.example.com/" }),
+			tab(4, { groupId: 1, highlighted: true, url: "https://example.com/" }),
+			tab(5, { groupId: 1, highlighted: true, url: "https://child.docs.example.com/" }),
+		], { protectedSites: ["docs.example.com"] });
+		expect(await suspendTabs({ type: "suspend", scope, id: 1 }))
+			.toEqual({ suspended: 3, skipped: 2, failed: 0, errors: [] });
+		expect(mock.tabs.discard.mock.calls.flat().sort()).toEqual([3, 4, 5]);
+		expect(tabs[0]).toMatchObject({ url: "https://Docs.Example.com:8443/edit", discarded: false });
+		expect(tabs[1]).toMatchObject({ url: "http://docs.example.com/view", discarded: false });
+	});
+	it.each(["unavailable", "unreadable"] as const)("stops bulk suspension before touching tabs when storage is %s", async (state) => {
+		const { mock } = createMockChrome([tab(1), tab(2, { url: "file:///tmp/note.html" })], { protectedSites: null });
+		if (state === "unavailable") mock.storage.local.get.mockRejectedValue(new Error("Storage unavailable"));
+		expect(await suspendTabs({ type: "suspend", scope: "all" }))
+			.toMatchObject({ suspended: 0, skipped: 0, failed: 1, errors: [expect.any(String)] });
+		expect(mock.tabs.query).not.toHaveBeenCalled();
+		expect(mock.tabs.discard).not.toHaveBeenCalled();
+		expect(mock.tabs.update).not.toHaveBeenCalled();
+	});
+	it("keeps web pages awake while changed settings are being read but can suspend local files", async () => {
+		const { mock, tabs } = createMockChrome([tab(1), tab(2, { url: "file:///tmp/note.html" })]);
+		const protection = await import("../../entrypoints/background/protection");
+		protection.watchProtection();
+		await protection.loadProtection();
+		let finishRead = () => {};
+		const reading = new Promise<void>((resolve) => { finishRead = resolve; });
+		const query = mock.tabs.query.getMockImplementation();
+		if (!query) throw new Error("Missing mock implementation");
+		mock.tabs.query.mockImplementationOnce(async (criteria) => {
+			mock.storage.local.get.mockImplementationOnce(async () => {
+				await reading;
+				return { protectedSites: [] };
+			});
+			mock.storage.local.onChanged.emit({ protectedSites: { newValue: ["example.com"] } });
+			return query(criteria);
+		});
+		expect(await suspendTabs({ type: "suspend", scope: "all" }))
+			.toMatchObject({ suspended: 1, skipped: 0, failed: 1 });
+		expect(mock.tabs.discard.mock.calls.flat()).toEqual([2]);
+		expect(tabs[0]).toMatchObject({ url: "https://example.com/1", discarded: false });
+		finishRead();
+		await protection.loadProtection();
+	});
+	it("keeps the original address when a site becomes protected during native discard", async () => {
+		const { mock, tabs } = createMockChrome([tab(1)]);
+		const protection = await import("../../entrypoints/background/protection");
+		const discard = mock.tabs.discard.getMockImplementation();
+		if (!discard) throw new Error("Missing mock implementation");
+		mock.tabs.discard.mockImplementationOnce(async (id) => {
+			const discarded = await discard(id);
+			await protection.changeProtection({ type: "protection", action: "protect", site: "example.com" });
+			return discarded;
+		});
+		expect(await suspendTabs({ type: "suspend", scope: "all" }))
+			.toMatchObject({ suspended: 0, skipped: 0, failed: 1 });
+		expect(tabs[0]).toMatchObject({ url: "https://example.com/1", discarded: true });
+		expect(mock.tabs.update).not.toHaveBeenCalled();
 	});
 	it("suspends only eligible highlighted tabs in the requested window", async () => {
 		const { mock } = createMockChrome([
