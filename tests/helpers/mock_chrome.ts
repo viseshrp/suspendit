@@ -16,15 +16,29 @@ export function event() {
 	};
 }
 
-export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
+export function createMockChrome(initial: chrome.tabs.Tab[] = [], initialStorage: Record<string, unknown> = {}) {
 	const tabs = initial.map((item) => ({ ...item }));
 	const groups: chrome.tabGroups.TabGroup[] = [];
+	const storage = structuredClone(initialStorage);
+	const storageChanged = event();
 	const get = (id: number) => {
 		const value = tabs.find((item) => item.id === id);
 		if (!value) throw new Error(`No tab with id: ${id}`);
 		return value;
 	};
 	const mock = {
+		storage: { local: {
+			get: vi.fn(async (key: string) => structuredClone({ [key]: storage[key] })),
+			set: vi.fn(async (values: Record<string, unknown>) => {
+				const changes: Record<string, chrome.storage.StorageChange> = {};
+				for (const [key, value] of Object.entries(values)) {
+					changes[key] = { oldValue: structuredClone(storage[key]), newValue: structuredClone(value) };
+					storage[key] = structuredClone(value);
+				}
+				storageChanged.emit(changes);
+			}),
+			onChanged: storageChanged,
+		} },
 		runtime: {
 			id: "test-id", lastError: undefined as { message: string } | undefined,
 			getURL: (path: string) => `chrome-extension://test-id/${path}`,
@@ -66,5 +80,5 @@ export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
 		action: { setBadgeText: vi.fn().mockResolvedValue(undefined), setTitle: vi.fn().mockResolvedValue(undefined) },
 	};
 	vi.stubGlobal("chrome", mock);
-	return { mock, tabs, groups };
+	return { mock, tabs, groups, storage };
 }

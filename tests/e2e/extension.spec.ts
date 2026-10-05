@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { close, command, evaluate, launch, restart, screenshot, target } from "../helpers/browser";
+import { browserCommand, close, command, evaluate, launch, restart, screenshot, target } from "../helpers/browser";
 
 let server: Server;
 let base: string;
@@ -61,7 +61,7 @@ async function getTab(id: number) {
 	if (url && !url.includes("/suspended.html#")) originalUrls.set(id, url);
 	return result;
 }
-async function createTab(title: string, options: { windowId?: number; pinned?: boolean } = {}) {
+async function createTab(title: string, options: { windowId?: number; pinned?: boolean; url?: string } = {}) {
 	const tab = await evaluate(worker, (props) => chrome.tabs.create(props), { url: `${base}/${encodeURIComponent(title)}`, active: false, windowId, ...options });
 	const id = tab.id as number;
 	await expect.poll(async () => (await getTab(id)).status).toBe("complete");
@@ -90,10 +90,62 @@ async function discardState(ids: number[]) {
 	return Promise.all(ids.map(async (id) => (await getTab(id)).url?.includes("/suspended.html#") ?? false));
 }
 
-test("individual suspension saves the original address and popup Resume restores it", async () => {
+test("keyboard protection survives popup and browser restarts and can be removed after the site's tabs close", async () => {
+	const id = await createTab("Saved site", { url: `${base.replace("127.0.0.1", "localhost")}/Saved-site` });
+	let page = await popup();
+	await expect.poll(() => evaluate(page, (id) => document.querySelector<HTMLButtonElement>(`#protect-${id}`)?.disabled, id)).toBe(false);
+	await evaluate(page, (id) => document.getElementById(`protect-${id}`)?.focus(), id);
+	await command(page, "Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+	await expect.poll(() => evaluate(page, (id) => document.getElementById(`protect-${id}`)?.getAttribute("aria-pressed"), id)).toBe("true");
+	await evaluate(page, () => { setTimeout(() => window.close(), 0); });
+	await expect.poll(async () => {
+		const { targetInfos } = await browserCommand<{ targetInfos: { url: string }[] }>("Target.getTargets");
+		return targetInfos.some((entry) => entry.url.endsWith("/popup.html"));
+	}).toBe(false);
+	await evaluate(worker, (id) => chrome.tabs.remove(id), id);
+	page = await popup();
+	await expect.poll(() => evaluate(page, () => document.querySelector(".protected-host")?.textContent)).toBe("localhost");
+	worker = await restart();
+	popupTarget = undefined;
+	const [active] = await evaluate(worker, () => chrome.tabs.query({ active: true }));
+	windowId = active.windowId;
+	page = await popup();
+	await expect.poll(() => evaluate(page, () => document.querySelector(".protected-host")?.textContent)).toBe("localhost");
+	expect(await evaluate(worker, () => chrome.storage.local.get("protectedSites"))).toEqual({ protectedSites: ["localhost"] });
+	await click("#protected-summary");
+	await evaluate(page, () => document.getElementById("unprotect-localhost")?.focus());
+	await command(page, "Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+	await expect.poll(() => evaluate(worker, () => chrome.storage.local.get("protectedSites"))).toEqual({ protectedSites: [] });
+	await expect.poll(() => evaluate(page, () => ({ count: document.querySelectorAll(".protected-site").length, focus: document.activeElement?.id }))).toEqual({ count: 0, focus: "protected-summary" });
+});
+
+test("storage recovery restores bulk actions and moves focus from hidden recovery controls", async () => {
+	await createTab("Available tab");
+	await evaluate(worker, () => chrome.storage.local.set({ protectedSites: null }));
+	const page = await popup();
+	const recoveryState = () => evaluate(page, () => ({
+		paused: document.querySelector<HTMLButtonElement>("#suspend-all")?.disabled,
+		clearHidden: document.getElementById("protection-clear")?.hidden,
+		focus: document.activeElement?.id,
+	}));
+	await expect.poll(recoveryState).toMatchObject({ paused: true, clearHidden: false });
+	await evaluate(page, () => document.getElementById("protection-retry")?.focus());
+	await evaluate(worker, () => chrome.storage.local.set({ protectedSites: [] }));
+	await expect.poll(recoveryState).toEqual({ paused: false, clearHidden: true, focus: "protected-summary" });
+	await evaluate(worker, () => chrome.storage.local.set({ protectedSites: null }));
+	await expect.poll(recoveryState).toMatchObject({ paused: true, clearHidden: false });
+	await evaluate(page, () => document.getElementById("protection-clear")?.focus());
+	await command(page, "Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+	await expect.poll(recoveryState).toEqual({ paused: false, clearHidden: true, focus: "protected-summary" });
+	expect(await evaluate(worker, () => chrome.storage.local.get("protectedSites"))).toEqual({ protectedSites: [] });
+});
+
+test("individual suspension overrides site protection and popup Resume restores the address", async () => {
 	const id = await createTab("Architecture notes");
 	const original = await getTab(id);
 	const page = await popup();
+	await click(`#protect-${id}`);
+	await expect.poll(() => evaluate(page, (id) => document.getElementById(`protect-${id}`)?.getAttribute("aria-pressed"), id)).toBe("true");
 	await click('[aria-label="Suspend Architecture notes"]');
 	await expect.poll(() => discardState([id])).toEqual([true]);
 	expect(new URLSearchParams(new URL((await getTab(id)).url as string).hash.slice(1)).get("url")).toBe(original.url);
@@ -202,29 +254,33 @@ test("site icons load through Chrome's favicon endpoint", async () => {
 	expect(new URL(src).searchParams.get("pageUrl")).toBe(`${base}/Today`);
 });
 
-test("group and current-window actions preserve active, pinned, and audio tabs", async () => {
+test("group and current-window actions keep protected sites, active, pinned, and audio tabs awake", async () => {
 	const first = await createTab("Architecture notes");
 	const second = await createTab("API reference");
 	const outside = await createTab("Later");
 	const pinned = await createTab("Pinned", { pinned: true });
 	const audio = await createTab("Audio");
+	const protectedId = await createTab("Protected", { url: `${base.replace("127.0.0.1", "localhost")}/Protected` });
 	await expect.poll(async () => (await getTab(audio)).audible).toBe(true);
 	const group = await evaluate(worker, async (ids) => {
 		const id = await chrome.tabs.group({ tabIds: ids as [number, ...number[]] });
 		await chrome.tabGroups.update(id, { title: "Research", color: "green" });
 		return id;
-	}, [first, second]);
+	}, [first, second, protectedId]);
 	await popup();
+	await click(`#protect-${protectedId}`);
+	await expect.poll(() => evaluate(worker, () => chrome.storage.local.get("protectedSites"))).toEqual({ protectedSites: ["localhost"] });
 	await click('[aria-label="Suspend group Research"]');
-	await expect.poll(() => discardState([first, second, outside, activeId, pinned, audio])).toEqual([true, true, false, false, false, false]);
+	await expect.poll(() => discardState([first, second, outside, activeId, pinned, audio, protectedId])).toEqual([true, true, false, false, false, false, false]);
 	expect((await getTab(first)).groupId).toBe(group);
 	await click("#suspend-window");
-	await expect.poll(() => discardState([outside, activeId, pinned, audio])).toEqual([true, false, false, false]);
+	await expect.poll(() => discardState([outside, activeId, pinned, audio, protectedId])).toEqual([true, false, false, false, false]);
+	expect((await getTab(protectedId)).discarded).toBe(false);
 	await click('[aria-label="Suspend Pinned"]');
 	await expect.poll(() => discardState([pinned])).toEqual([true]);
 });
 
-test("window and all-window actions keep each window's active tab awake", async () => {
+test("window, selected, and all-window actions keep protected sites and active tabs awake", async () => {
 	const local = await createTab("Local tab");
 	const other = await evaluate(worker, async (url) => {
 		const window = await chrome.windows.create({ url, focused: false });
@@ -232,13 +288,25 @@ test("window and all-window actions keep each window's active tab awake", async 
 		return { windowId: window.id as number, activeId: window.tabs?.[0].id as number };
 	}, `${base}/Other`);
 	const remote = await createTab("Remote tab", { windowId: other.windowId });
+	const protectedId = await createTab("Protected", { windowId: other.windowId, url: `${base.replace("127.0.0.1", "localhost")}/Protected` });
+	const selected = await createTab("Selected tab");
+	const selectedProtected = await createTab("Selected protected", { url: `${base.replace("127.0.0.1", "localhost")}/Selected-protected` });
 	await getTab(other.activeId);
 	await evaluate(worker, (id) => chrome.windows.update(id, { focused: true }), windowId);
+	await evaluate(worker, async ({ ids, windowId }) => {
+		const tabs = await Promise.all(ids.map((id) => chrome.tabs.get(id)));
+		await chrome.tabs.highlight({ windowId, tabs: tabs.map((tab) => tab.index) });
+	}, { ids: [activeId, selected, selectedProtected], windowId });
 	await popup();
+	await click(`#protect-${selectedProtected}`);
+	await expect.poll(() => evaluate(worker, () => chrome.storage.local.get("protectedSites"))).toEqual({ protectedSites: ["localhost"] });
 	await click(`#window-${other.windowId}`);
-	await expect.poll(() => discardState([local, remote, activeId, other.activeId])).toEqual([false, true, false, false]);
+	await expect.poll(() => discardState([local, remote, activeId, other.activeId, protectedId])).toEqual([false, true, false, false, false]);
+	await click("#suspend-selected");
+	await expect.poll(() => discardState([local, selected, selectedProtected, activeId])).toEqual([false, true, false, false]);
 	await click("#suspend-all");
-	await expect.poll(() => discardState([local, remote, activeId, other.activeId])).toEqual([true, true, false, false]);
+	await expect.poll(() => discardState([local, remote, activeId, other.activeId, protectedId, selectedProtected])).toEqual([true, true, false, false, false, false]);
+	for (const id of [protectedId, selectedProtected]) expect((await getTab(id)).discarded).toBe(false);
 });
 
 // biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured fixture arguments.
