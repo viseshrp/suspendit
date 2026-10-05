@@ -15,7 +15,7 @@ beforeEach(() => {
 	vi.resetModules();
 	vi.useFakeTimers();
 	document.body.innerHTML = new DOMParser().parseFromString(html, "text/html").body.innerHTML;
-	state = createMockChrome([tab(1, { active: true }), tab(2, { groupId: 7 }), tab(3, { groupId: 7 }), tab(4, { windowId: 2 }), tab(5, { discarded: true })]);
+	state = createMockChrome([tab(1, { active: true, highlighted: true }), tab(2, { groupId: 7 }), tab(3, { groupId: 7 }), tab(4, { windowId: 2 }), tab(5, { discarded: true })]);
 	state.groups.push({ id: 7, title: "Research", color: "green", collapsed: false, windowId: 1, shared: false });
 	vi.spyOn(window, "close").mockImplementation(() => {});
 });
@@ -42,13 +42,15 @@ it("shows live window/group/tab counts, search results, and collapsed windows", 
 	expect(document.querySelectorAll(".tab-row")).toHaveLength(6);
 });
 
-it("sends individual, group, window, and all-window suspension requests", async () => {
+it("sends individual, selected, group, window, and all-window suspension requests", async () => {
+	state.tabs[1].highlighted = true;
 	await start();
 	for (const [id, request] of [
 		["suspend-2", { type: "suspend", scope: "tab", id: 2 }],
 		["group-7", { type: "suspend", scope: "group", id: 7 }],
 		["window-2", { type: "suspend", scope: "window", id: 2 }],
 		["suspend-window", { type: "suspend", scope: "window", id: 1 }],
+		["suspend-selected", { type: "suspend", scope: "selected", id: 1 }],
 		["suspend-all", { type: "suspend", scope: "all" }],
 	] as const) {
 		await click(id);
@@ -142,7 +144,7 @@ it("shows the saved title, URL and favicon and restores placeholders from the po
 
 it("keeps untrusted titles as text and explains disabled actions", async () => {
 	state.tabs.splice(0, state.tabs.length,
-		tab(1, { active: true, title: "<img src=x onerror=alert(1)>" }),
+		tab(1, { active: true, highlighted: true, title: "<img src=x onerror=alert(1)>" }),
 		tab(2, { discarded: true, title: "", url: "file:///tmp/report.txt" }),
 		tab(3, { id: undefined, url: undefined, title: undefined, discarded: true }),
 	);
@@ -152,6 +154,7 @@ it("keeps untrusted titles as text and explains disabled actions", async () => {
 	expect(document.querySelector(".tab-title")?.textContent).toContain("<img");
 	expect(button("suspend-1").disabled).toBe(true);
 	expect(button("suspend-1").title).toContain("Keep another tab awake");
+	expect(button("suspend-selected").disabled).toBe(true);
 	expect(button("suspend-2").title).toBe("Already suspended");
 	expect(button("suspend-all").disabled).toBe(true);
 });
@@ -192,6 +195,7 @@ it("handles an unavailable browser query and subsequent refresh", async () => {
 	state.mock.tabs.query.mockRejectedValueOnce(new Error("Browser busy"));
 	await start();
 	expect(status().textContent).toContain("Could not read tabs");
+	expect(button("suspend-selected").disabled).toBe(true);
 	expect(button("suspend-all").disabled).toBe(true);
 	state.mock.tabs.onUpdated.emit();
 	await vi.runAllTimersAsync();
