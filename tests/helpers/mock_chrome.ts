@@ -36,7 +36,8 @@ export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
 			get: vi.fn(async (id: number) => ({ ...get(id) })),
 			query: vi.fn(async (query: chrome.tabs.QueryInfo) => tabs.filter((item) =>
 				(query.windowId === undefined || query.windowId === item.windowId) &&
-				(query.groupId === undefined || query.groupId === item.groupId)).map((item) => ({ ...item }))),
+				(query.groupId === undefined || query.groupId === item.groupId) &&
+				(query.highlighted === undefined || query.highlighted === item.highlighted)).map((item) => ({ ...item }))),
 			update: vi.fn(async (id: number, props: chrome.tabs.UpdateProperties) => {
 				const target = get(id);
 				if (props.active) {
@@ -58,6 +59,7 @@ export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
 		tabGroups: { query: vi.fn(async () => [...groups]), onCreated: event(), onUpdated: event(), onRemoved: event() },
 		windows: { getCurrent: vi.fn(async () => ({ id: 1 })), update: vi.fn().mockResolvedValue({}) },
 		contextMenus: {
+			ContextType: { PAGE: "page" },
 			removeAll: vi.fn().mockResolvedValue(undefined),
 			create: vi.fn((_options: unknown, callback: () => void) => callback()), onClicked: event(),
 		},
