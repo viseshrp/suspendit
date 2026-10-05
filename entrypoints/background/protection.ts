@@ -69,6 +69,7 @@ export function changeProtection(request: ProtectionRequest): Promise<Protection
 	// Hold the site before queuing so a bulk action cannot pass an accepted change.
 	if (site !== undefined) changing.set(site, (changing.get(site) ?? 0) + 1);
 	const change = writes.then(() => applyChange(request));
+	// A failed change must not block later changes; its caller still gets the error.
 	writes = change.catch(() => {});
 	return change.then(
 		(saved): ProtectionReply => ({ ok: true, sites: [...saved].sort() }),
@@ -105,6 +106,7 @@ async function saveSites(next: Set<string>): Promise<ReadonlySet<string>> {
 		// https://developer.chrome.com/docs/extensions/reference/api/storage/StorageArea#method-set
 		await chrome.storage.local.set({ [PROTECTED_SITES_KEY]: [...next].sort() });
 	} catch (error) {
+		// Stop trusting the cached list after a failed save; the next caller reads the saved value again.
 		sites = undefined;
 		revision++;
 		throw new Error(`Could not save protected sites. ${getErrorMessage(error)}`);
@@ -125,6 +127,7 @@ async function saveSites(next: Set<string>): Promise<ReadonlySet<string>> {
 export function siteProtection(tab: chrome.tabs.Tab): "allowed" | "protected" | "unavailable" {
 	const site = tabSite(tab);
 	if (!site) return "allowed";
+	// An unanswered change keeps its site protected in either direction until the worker replies.
 	if (changing.has(site) || sites?.has(site)) return "protected";
 	return sites ? "allowed" : "unavailable";
 }

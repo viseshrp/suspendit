@@ -20,6 +20,7 @@ const savedSites = new Map<string, { element: HTMLElement; button: HTMLButtonEle
 export function isBulkEligible(tab: chrome.tabs.Tab, protection: ProtectionView) {
 	if (protection.paused || skipReason(tab, true)) return false;
 	const site = tabSite(tab);
+	// A site with an unanswered change counts as protected, matching the worker's hold.
 	return !site || (!protection.sites?.has(site) && !protection.saving.has(site));
 }
 

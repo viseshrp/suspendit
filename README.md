@@ -60,9 +60,12 @@ Changing protection never reloads or resumes a suspended tab. Chrome cannot undo
 so a tab whose site becomes protected while a bulk action is unloading it keeps its address,
 reloads when selected, and counts as failed.
 
-If SuspendIt cannot read or save protected sites, bulk actions pause and the popup footer
-explains why. **Retry** reads the list again; **Clear saved sites** appears when the saved list
-is unreadable. Individual suspension and Resume keep working.
+If SuspendIt cannot read protected sites, or the saved list is unreadable, bulk actions suspend
+nothing and the popup footer explains why. If a protection change cannot be saved, the site
+keeps its previous setting. The popup reports the failure and pauses its bulk buttons until it
+reads the list again, for example after **Retry**. Context-menu bulk actions and a reopened
+popup use the last saved list. **Clear saved sites** appears when the saved list is unreadable.
+Individual suspension and Resume keep working.
 
 ## Project structure
 

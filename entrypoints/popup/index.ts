@@ -65,7 +65,8 @@ function protectionView(): ProtectionView {
 function renderProtection() {
 	renderProtectedSites(protectionView());
 	const focus = document.activeElement;
-	protectionNote.textContent = protectionProblem || (protectedSites ? PROTECTION_NOTE : "Reading protected sites…");
+	const note = protectionProblem || (protectedSites ? PROTECTION_NOTE : "Reading protected sites…");
+	if (protectionNote.textContent !== note) protectionNote.textContent = note;
 	protectionNote.dataset.error = String(Boolean(protectionProblem));
 	protectionRetry.hidden = !protectionProblem;
 	protectionClear.hidden = !unreadableSites;
@@ -75,6 +76,7 @@ function renderProtection() {
 }
 
 function showProtection() {
+	// Until the first tab query finishes, update only the protection UI so #counts keeps its loading text.
 	if (loaded) render();
 	else renderProtection();
 }
@@ -244,6 +246,7 @@ search.addEventListener("input", () => {
 document.getElementById("windows")?.addEventListener("click", (event) => {
 	const button = (event.target as Element).closest<HTMLButtonElement>("button[data-action]");
 	if (!button || button.disabled) return;
+	// Shields carry data-site instead of data-id, and protection can change while a suspension runs.
 	if (button.dataset.action === "protect") {
 		const site = button.dataset.site;
 		if (site) void setProtection(site, button.getAttribute("aria-pressed") !== "true");
