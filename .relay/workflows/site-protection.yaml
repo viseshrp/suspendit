@@ -1,0 +1,1384 @@
+{
+  "version": 1,
+  "name": "Protect important sites - autonomous delivery loop",
+  "inputs": {
+    "task": {
+      "type": "string",
+      "required": true
+    }
+  },
+  "nodes": {
+    "prepare": {
+      "type": "command",
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-u",
+        "-c",
+        "from pathlib import Path\nimport subprocess\n\nprevious = '58d4d0954bbfa5eb5896926d00837d554aacf839'\nif subprocess.run([\"git\", \"merge-base\", \"--is-ancestor\", previous, \"HEAD\"]).returncode:\n    subprocess.run([\"git\", \"merge\", \"--no-edit\", previous], check=True)\nsubprocess.run([\"git\", \"merge-base\", \"--is-ancestor\", previous, \"HEAD\"], check=True)\nsubprocess.run([\"pnpm\", \"install\", \"--frozen-lockfile\"], check=True)\nprint(\"Prior selected-tabs feature and tests preserved; dependencies installed from the lockfile.\", flush=True)\n"
+      ],
+      "needs": []
+    },
+    "explore": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "codex"
+      ],
+      "model": "gpt-6-astra",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/01_initial_exploration_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
+        },
+        {
+          "local": "prompts/handoffs/site-protection.txt"
+        }
+      ],
+      "outputs": {
+        "draft_plan": {
+          "label": {
+            "artifact": "DRAFT_PLAN.md",
+            "label": "Created by"
+          }
+        },
+        "initial_opus_planning_prompt": {
+          "label": {
+            "artifact": "INITIAL_OPUS_PLANNING_PROMPT.md",
+            "label": "Created by"
+          }
+        }
+      },
+      "agent_options": {
+        "codex": {
+          "effort": "ultra",
+          "permission_mode": "agent-full-access"
+        }
+      },
+      "needs": [
+        "prepare"
+      ],
+      "timeout": "90m"
+    },
+    "explore_artifacts": {
+      "type": "command",
+      "needs": [
+        "explore"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-c",
+        "from pathlib import Path; import sys; paths=['DRAFT_PLAN.md', 'INITIAL_OPUS_PLANNING_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
+    "plan": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/handoffs/plan.txt"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
+        },
+        {
+          "local": "prompts/handoffs/site-protection.txt"
+        }
+      ],
+      "outputs": {
+        "feature_spec_and_plan": {
+          "label": {
+            "artifact": "FEATURE_SPEC_AND_PLAN.md",
+            "label": "Created by"
+          }
+        },
+        "execution_prompt": {
+          "label": {
+            "artifact": "EXECUTION_PROMPT.md",
+            "label": "Created by"
+          }
+        }
+      },
+      "needs": [
+        "explore_artifacts"
+      ],
+      "agent_options": {
+        "claude": {
+          "effort": "max",
+          "permission_mode": "bypassPermissions"
+        }
+      },
+      "timeout": "90m"
+    },
+    "plan_artifacts": {
+      "type": "command",
+      "needs": [
+        "plan"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-c",
+        "from pathlib import Path; import sys; paths=['FEATURE_SPEC_AND_PLAN.md', 'EXECUTION_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
+    "critique": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "antigravity"
+      ],
+      "model": "gemini-3.1-pro-high",
+      "permission_profile": "auto_approve",
+      "prompts": [
+        {
+          "local": "prompts/source/02_plan_critique_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
+        },
+        {
+          "local": "prompts/handoffs/site-protection.txt"
+        }
+      ],
+      "outputs": {
+        "plan_critique": {
+          "label": {
+            "artifact": "PLAN_CRITIQUE.md",
+            "label": "Created by"
+          }
+        },
+        "opus_plan_revision_request": {
+          "label": {
+            "artifact": "OPUS_PLAN_REVISION_REQUEST.md",
+            "label": "Created by"
+          }
+        }
+      },
+      "needs": [
+        "plan_artifacts"
+      ],
+      "agent_options": {
+        "antigravity": {
+          "effort": "high",
+          "permission_mode": "auto_approve"
+        }
+      },
+      "timeout": "90m"
+    },
+    "critique_artifacts": {
+      "type": "command",
+      "needs": [
+        "critique"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-c",
+        "from pathlib import Path; import sys; paths=['PLAN_CRITIQUE.md', 'OPUS_PLAN_REVISION_REQUEST.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
+    "planning": {
+      "type": "loop",
+      "needs": [
+        "critique_artifacts"
+      ],
+      "max_iterations": 4,
+      "until": "${{ needs.plan_verdict.outputs.ready }}",
+      "exhausted": "planning_exhausted",
+      "body": {
+        "revise": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "claude"
+          ],
+          "model": "opus",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/handoffs/revise.txt"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "plan_revision_summary": {
+              "label": {
+                "artifact": "PLAN_REVISION_SUMMARY.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [],
+          "agent_options": {
+            "claude": {
+              "effort": "max",
+              "permission_mode": "bypassPermissions"
+            }
+          },
+          "timeout": "90m"
+        },
+        "revise_artifacts": {
+          "type": "command",
+          "needs": [
+            "revise"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['PLAN_REVISION_SUMMARY.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ]
+        },
+        "verify_plan": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "antigravity"
+          ],
+          "model": "gemini-3.1-pro-high",
+          "permission_profile": "auto_approve",
+          "prompts": [
+            {
+              "local": "prompts/source/03_plan_revision_verification_any_model.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "plan_revision_verification": {
+              "label": {
+                "artifact": "PLAN_REVISION_VERIFICATION.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [
+            "revise_artifacts"
+          ],
+          "agent_options": {
+            "antigravity": {
+              "effort": "high",
+              "permission_mode": "auto_approve"
+            }
+          },
+          "timeout": "90m"
+        },
+        "verify_plan_artifacts": {
+          "type": "command",
+          "needs": [
+            "verify_plan"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['PLAN_REVISION_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ]
+        },
+        "plan_verdict": {
+          "type": "command",
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-u",
+            "-c",
+            "from pathlib import Path\nimport json\nimport re\nimport subprocess\nimport sys\n\nlabels = ['All previous concerns resolved', 'Documentation checkpoints complete', 'Ready for implementation']\nreport = Path('PLAN_REVISION_VERIFICATION.md')\nresult = subprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", str(report), *labels], capture_output=True, text=True)\nprint(result.stdout, end=\"\", flush=True)\nprint(result.stderr, end=\"\", flush=True)\nready = result.returncode == 0\nproduction_fixes_required = False\ncheckpoint = {\"ready\": ready, \"production_fixes_required\": production_fixes_required}\nPath('PLAN_CHECKPOINT.json').write_text(json.dumps(checkpoint, indent=2) + \"\\n\", encoding=\"utf-8\")\nprint(\"Checkpoint\", json.dumps(checkpoint), flush=True)\n"
+          ],
+          "needs": [
+            "verify_plan_artifacts"
+          ],
+          "outputs": {
+            "ready": {
+              "json_path": {
+                "artifact": "PLAN_CHECKPOINT.json",
+                "path": "ready"
+              }
+            },
+            "production_fixes_required": {
+              "json_path": {
+                "artifact": "PLAN_CHECKPOINT.json",
+                "path": "production_fixes_required"
+              }
+            }
+          }
+        },
+        "critique_feedback": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "antigravity"
+          ],
+          "model": "gemini-3.1-pro-high",
+          "permission_profile": "auto_approve",
+          "prompts": [
+            {
+              "local": "prompts/source/02_plan_critique_any_model.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "plan_critique": {
+              "label": {
+                "artifact": "PLAN_CRITIQUE.md",
+                "label": "Created by"
+              }
+            },
+            "opus_plan_revision_request": {
+              "label": {
+                "artifact": "OPUS_PLAN_REVISION_REQUEST.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [
+            "plan_verdict"
+          ],
+          "agent_options": {
+            "antigravity": {
+              "effort": "high",
+              "permission_mode": "auto_approve"
+            }
+          },
+          "timeout": "90m",
+          "if": "${{ not needs.plan_verdict.outputs.ready }}"
+        },
+        "critique_feedback_artifacts": {
+          "type": "command",
+          "needs": [
+            "critique_feedback",
+            "plan_verdict"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['PLAN_CRITIQUE.md', 'OPUS_PLAN_REVISION_REQUEST.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ],
+          "if": "${{ not needs.plan_verdict.outputs.ready }}"
+        }
+      }
+    },
+    "planning_exhausted": {
+      "type": "command",
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-u",
+        "-c",
+        "raise SystemExit(\"Plan revisions exhausted; implementation is not authorized by evidence.\")\n"
+      ],
+      "needs": [
+        "planning"
+      ]
+    },
+    "plan_checkpoint": {
+      "type": "command",
+      "needs": [
+        "planning"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        ".relay/scripts/verify-verdict.py",
+        "PLAN_REVISION_VERIFICATION.md",
+        "All previous concerns resolved",
+        "Documentation checkpoints complete",
+        "Ready for implementation"
+      ]
+    },
+    "implement": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "codex"
+      ],
+      "model": "gpt-6-astra",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/handoffs/implement.txt"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
+        },
+        {
+          "local": "prompts/handoffs/site-protection.txt"
+        }
+      ],
+      "outputs": {},
+      "needs": [
+        "plan_checkpoint"
+      ],
+      "agent_options": {
+        "codex": {
+          "effort": "ultra",
+          "permission_mode": "agent-full-access"
+        }
+      },
+      "timeout": "90m"
+    },
+    "review": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/04_opus_review_branch.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
+        },
+        {
+          "local": "prompts/handoffs/site-protection.txt"
+        }
+      ],
+      "outputs": {
+        "review": {
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
+        },
+        "walkthrough": {
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
+        },
+        "review_fix_prompt": {
+          "label": {
+            "artifact": "REVIEW_FIX_PROMPT.md",
+            "label": "Created by"
+          }
+        }
+      },
+      "needs": [
+        "implement"
+      ],
+      "agent_options": {
+        "claude": {
+          "effort": "max",
+          "permission_mode": "bypassPermissions"
+        }
+      },
+      "timeout": "90m"
+    },
+    "review_artifacts": {
+      "type": "command",
+      "needs": [
+        "review"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-c",
+        "from pathlib import Path; import sys; paths=['REVIEW.md', 'WALKTHROUGH.md', 'REVIEW_FIX_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+      ]
+    },
+    "repairs": {
+      "type": "loop",
+      "needs": [
+        "review_artifacts"
+      ],
+      "max_iterations": 4,
+      "until": "${{ needs.verdict.outputs.ready }}",
+      "exhausted": "repairs_exhausted",
+      "body": {
+        "fix": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "codex"
+          ],
+          "model": "gpt-6-astra",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/handoffs/fix.txt"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {},
+          "needs": [],
+          "agent_options": {
+            "codex": {
+              "effort": "ultra",
+              "permission_mode": "agent-full-access"
+            }
+          },
+          "timeout": "90m"
+        },
+        "verify_fixes": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "claude"
+          ],
+          "model": "opus",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/source/05_opus_verify_review_fixes.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "review_fix_verification": {
+              "label": {
+                "artifact": "REVIEW_FIX_VERIFICATION.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [
+            "fix"
+          ],
+          "agent_options": {
+            "claude": {
+              "effort": "max",
+              "permission_mode": "bypassPermissions"
+            }
+          },
+          "timeout": "90m"
+        },
+        "verify_fixes_artifacts": {
+          "type": "command",
+          "needs": [
+            "verify_fixes"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['REVIEW_FIX_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ]
+        },
+        "verdict": {
+          "type": "command",
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-u",
+            "-c",
+            "from pathlib import Path\nimport json\nimport re\nimport subprocess\nimport sys\n\nlabels = ['All valid blocking and non-blocking review findings resolved', 'Documentation checkpoints complete', 'Ready to finalize review/walkthrough docs']\nreport = Path('REVIEW_FIX_VERIFICATION.md')\nresult = subprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", str(report), *labels], capture_output=True, text=True)\nprint(result.stdout, end=\"\", flush=True)\nprint(result.stderr, end=\"\", flush=True)\nready = result.returncode == 0\nproduction_fixes_required = False\ncheckpoint = {\"ready\": ready, \"production_fixes_required\": production_fixes_required}\nPath('REVIEW_CHECKPOINT.json').write_text(json.dumps(checkpoint, indent=2) + \"\\n\", encoding=\"utf-8\")\nprint(\"Checkpoint\", json.dumps(checkpoint), flush=True)\n"
+          ],
+          "needs": [
+            "verify_fixes_artifacts"
+          ],
+          "outputs": {
+            "ready": {
+              "json_path": {
+                "artifact": "REVIEW_CHECKPOINT.json",
+                "path": "ready"
+              }
+            },
+            "production_fixes_required": {
+              "json_path": {
+                "artifact": "REVIEW_CHECKPOINT.json",
+                "path": "production_fixes_required"
+              }
+            }
+          }
+        },
+        "review_feedback": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "claude"
+          ],
+          "model": "opus",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/source/04_opus_review_branch.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "review": {
+              "label": {
+                "artifact": "REVIEW.md",
+                "label": "Created by"
+              }
+            },
+            "walkthrough": {
+              "label": {
+                "artifact": "WALKTHROUGH.md",
+                "label": "Created by"
+              }
+            },
+            "review_fix_prompt": {
+              "label": {
+                "artifact": "REVIEW_FIX_PROMPT.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [
+            "verdict"
+          ],
+          "agent_options": {
+            "claude": {
+              "effort": "max",
+              "permission_mode": "bypassPermissions"
+            }
+          },
+          "timeout": "90m",
+          "if": "${{ not needs.verdict.outputs.ready }}"
+        },
+        "review_feedback_artifacts": {
+          "type": "command",
+          "needs": [
+            "review_feedback",
+            "verdict"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['REVIEW.md', 'WALKTHROUGH.md', 'REVIEW_FIX_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ],
+          "if": "${{ not needs.verdict.outputs.ready }}"
+        }
+      }
+    },
+    "repairs_exhausted": {
+      "type": "command",
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-u",
+        "-c",
+        "raise SystemExit(\"Review repairs exhausted; valid findings remain.\")\n"
+      ],
+      "needs": [
+        "repairs"
+      ]
+    },
+    "verification_checkpoint": {
+      "type": "command",
+      "needs": [
+        "repairs"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        ".relay/scripts/verify-verdict.py",
+        "REVIEW_FIX_VERIFICATION.md",
+        "All valid blocking and non-blocking review findings resolved",
+        "Documentation checkpoints complete",
+        "Ready to finalize review/walkthrough docs"
+      ]
+    },
+    "refresh": {
+      "type": "agent",
+      "writes": true,
+      "allow_no_commit": true,
+      "agents": [
+        "claude"
+      ],
+      "model": "opus",
+      "permission_profile": "interactive",
+      "prompts": [
+        {
+          "local": "prompts/source/06_opus_refresh_review_and_walkthrough.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
+        },
+        {
+          "local": "prompts/handoffs/site-protection.txt"
+        }
+      ],
+      "outputs": {
+        "review": {
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
+        },
+        "walkthrough": {
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
+        }
+      },
+      "needs": [
+        "verification_checkpoint"
+      ],
+      "agent_options": {
+        "claude": {
+          "effort": "max",
+          "permission_mode": "bypassPermissions"
+        }
+      },
+      "timeout": "90m"
+    },
+    "testing": {
+      "type": "loop",
+      "needs": [
+        "refresh"
+      ],
+      "max_iterations": 4,
+      "until": "${{ needs.audit_verdict.outputs.ready and needs.delivery_checks.outputs.ready }}",
+      "exhausted": "tests_exhausted",
+      "body": {
+        "tests": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "codex"
+          ],
+          "model": "gpt-6-astra",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/source/09_write_focused_tests_any_model.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {},
+          "needs": [],
+          "agent_options": {
+            "codex": {
+              "effort": "ultra",
+              "permission_mode": "agent-full-access"
+            }
+          },
+          "timeout": "90m"
+        },
+        "delivery_checks": {
+          "type": "command",
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-u",
+            "-c",
+            "from pathlib import Path\nfrom datetime import datetime, timezone\nimport json\nimport subprocess\n\ncommands = ([\"pnpm\", \"quality\"], [\"pnpm\", \"test\"], [\"pnpm\", \"smoke\"], [\"pnpm\", \"exec\", \"playwright\", \"test\"])\nresults = []\nfor arguments in commands:\n    print(\"DELIVERY COMMAND\", \" \".join(arguments), flush=True)\n    result = subprocess.run(arguments, capture_output=True, text=True)\n    print(result.stdout, end=\"\", flush=True)\n    print(result.stderr, end=\"\", flush=True)\n    results.append({\"command\": list(arguments), \"exit_code\": result.returncode, \"stdout\": result.stdout, \"stderr\": result.stderr})\nready = all(result[\"exit_code\"] == 0 for result in results)\nnow = datetime.now(timezone.utc).isoformat()\nreport = Path(\"E2E_VERIFICATION.md\")\ncreated = now\nif report.exists():\n    for line in report.read_text(encoding=\"utf-8\").splitlines():\n        if line.startswith(\"Created at: \"):\n            created = line.removeprefix(\"Created at: \")\nhead = subprocess.run([\"git\", \"rev-parse\", \"HEAD\"], check=True, capture_output=True, text=True).stdout.strip()\nlines = [\"# End-to-end verification\", \"\", \"Created by: Relay delivery checks\", \"Created at: \" + created, \"Updated at: \" + now, \"\", \"Checked commit: \" + head, \"\", \"All delivery checks passed: \" + (\"Yes\" if ready else \"No\"), \"\"]\nfor result in results:\n    lines.extend([\"## \" + \" \".join(result[\"command\"]), \"\", \"Exit code: \" + str(result[\"exit_code\"]), \"\", \"````text\", result[\"stdout\"] + result[\"stderr\"], \"````\", \"\"])\nreport.write_text(\"\\n\".join(lines), encoding=\"utf-8\")\nPath(\"E2E_CHECKPOINT.json\").write_text(json.dumps({\"ready\": ready, \"commit\": head, \"checks\": results}, indent=2) + \"\\n\", encoding=\"utf-8\")\nprint(\"Delivery checkpoint\", json.dumps({\"ready\": ready, \"commit\": head}), flush=True)\n"
+          ],
+          "needs": [
+            "tests"
+          ],
+          "outputs": {
+            "ready": {
+              "json_path": {
+                "artifact": "E2E_CHECKPOINT.json",
+                "path": "ready"
+              }
+            },
+            "report": {
+              "label": {
+                "artifact": "E2E_VERIFICATION.md",
+                "label": "All delivery checks passed"
+              }
+            }
+          }
+        },
+        "test_audit": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "antigravity"
+          ],
+          "model": "gemini-3.1-pro-high",
+          "permission_profile": "auto_approve",
+          "prompts": [
+            {
+              "local": "prompts/source/10_test_audit_any_model.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "test_audit": {
+              "label": {
+                "artifact": "TEST_AUDIT.md",
+                "label": "- Ready to complete workflow"
+              }
+            }
+          },
+          "needs": [
+            "delivery_checks"
+          ],
+          "agent_options": {
+            "antigravity": {
+              "effort": "high",
+              "permission_mode": "auto_approve"
+            }
+          },
+          "timeout": "90m"
+        },
+        "test_audit_artifacts": {
+          "type": "command",
+          "needs": [
+            "test_audit"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['TEST_AUDIT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ]
+        },
+        "audit_verdict": {
+          "type": "command",
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-u",
+            "-c",
+            "from pathlib import Path\nimport json\nimport re\nimport subprocess\nimport sys\n\nlabels = ['All audit findings resolved', 'Documentation checkpoints complete', 'Ready to complete workflow']\nreport = Path('TEST_AUDIT.md')\nresult = subprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", str(report), *labels], capture_output=True, text=True)\nprint(result.stdout, end=\"\", flush=True)\nprint(result.stderr, end=\"\", flush=True)\nready = result.returncode == 0\nproduction_fixes_required = False\ntext = report.read_text(encoding=\"utf-8\")\nsections = re.split(r\"(?m)^#{1,6}[ \\t]+\", text)\nfor heading in (\"Blocking Issues\", \"Non-Blocking Issues\"):\n    bodies = [body.strip() for section in sections for title, separator, body in [section.partition(\"\\n\")] if separator and title.strip() == heading]\n    if bodies != [\"None.\"]:\n        ready = False\nflags = [line.removeprefix(\"- Production fixes required: \").strip() for line in text.splitlines() if line.startswith(\"- Production fixes required: \")]\nproduction_fixes_required = flags != [\"No\"]\ndelivery = json.loads(Path(\"E2E_CHECKPOINT.json\").read_text(encoding=\"utf-8\"))\nif delivery[\"ready\"] is not True:\n    ready = False\n    production_fixes_required = True\nif ready and production_fixes_required:\n    ready = False\ncheckpoint = {\"ready\": ready, \"production_fixes_required\": production_fixes_required}\nPath('AUDIT_CHECKPOINT.json').write_text(json.dumps(checkpoint, indent=2) + \"\\n\", encoding=\"utf-8\")\nprint(\"Checkpoint\", json.dumps(checkpoint), flush=True)\n"
+          ],
+          "needs": [
+            "test_audit_artifacts",
+            "delivery_checks"
+          ],
+          "outputs": {
+            "ready": {
+              "json_path": {
+                "artifact": "AUDIT_CHECKPOINT.json",
+                "path": "ready"
+              }
+            },
+            "production_fixes_required": {
+              "json_path": {
+                "artifact": "AUDIT_CHECKPOINT.json",
+                "path": "production_fixes_required"
+              }
+            }
+          }
+        },
+        "production_review": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "claude"
+          ],
+          "model": "opus",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/source/04_opus_review_branch.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "review": {
+              "label": {
+                "artifact": "REVIEW.md",
+                "label": "Created by"
+              }
+            },
+            "walkthrough": {
+              "label": {
+                "artifact": "WALKTHROUGH.md",
+                "label": "Created by"
+              }
+            },
+            "review_fix_prompt": {
+              "label": {
+                "artifact": "REVIEW_FIX_PROMPT.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [
+            "audit_verdict"
+          ],
+          "agent_options": {
+            "claude": {
+              "effort": "max",
+              "permission_mode": "bypassPermissions"
+            }
+          },
+          "timeout": "90m",
+          "if": "${{ needs.audit_verdict.outputs.production_fixes_required }}"
+        },
+        "production_review_artifacts": {
+          "type": "command",
+          "needs": [
+            "production_review",
+            "audit_verdict"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-c",
+            "from pathlib import Path; import sys; paths=['REVIEW.md', 'WALKTHROUGH.md', 'REVIEW_FIX_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+          ],
+          "if": "${{ needs.audit_verdict.outputs.production_fixes_required }}"
+        },
+        "production_repair": {
+          "type": "loop",
+          "needs": [
+            "production_review_artifacts",
+            "audit_verdict"
+          ],
+          "max_iterations": 4,
+          "until": "${{ needs.verdict.outputs.ready }}",
+          "exhausted": "production_exhausted",
+          "body": {
+            "fix": {
+              "type": "agent",
+              "writes": true,
+              "allow_no_commit": true,
+              "agents": [
+                "codex"
+              ],
+              "model": "gpt-6-astra",
+              "permission_profile": "interactive",
+              "prompts": [
+                {
+                  "local": "prompts/handoffs/fix.txt"
+                },
+                {
+                  "local": "prompts/handoffs/automation.txt"
+                },
+                {
+                  "local": "prompts/handoffs/site-protection.txt"
+                }
+              ],
+              "outputs": {},
+              "needs": [],
+              "agent_options": {
+                "codex": {
+                  "effort": "ultra",
+                  "permission_mode": "agent-full-access"
+                }
+              },
+              "timeout": "90m"
+            },
+            "verify_fixes": {
+              "type": "agent",
+              "writes": true,
+              "allow_no_commit": true,
+              "agents": [
+                "claude"
+              ],
+              "model": "opus",
+              "permission_profile": "interactive",
+              "prompts": [
+                {
+                  "local": "prompts/source/05_opus_verify_review_fixes.md"
+                },
+                {
+                  "local": "prompts/handoffs/automation.txt"
+                },
+                {
+                  "local": "prompts/handoffs/site-protection.txt"
+                }
+              ],
+              "outputs": {
+                "review_fix_verification": {
+                  "label": {
+                    "artifact": "REVIEW_FIX_VERIFICATION.md",
+                    "label": "Created by"
+                  }
+                }
+              },
+              "needs": [
+                "fix"
+              ],
+              "agent_options": {
+                "claude": {
+                  "effort": "max",
+                  "permission_mode": "bypassPermissions"
+                }
+              },
+              "timeout": "90m"
+            },
+            "verify_fixes_artifacts": {
+              "type": "command",
+              "needs": [
+                "verify_fixes"
+              ],
+              "writes": true,
+              "allow_no_commit": true,
+              "run": [
+                "uv",
+                "run",
+                "--no-project",
+                "python",
+                "-c",
+                "from pathlib import Path; import sys; paths=['REVIEW_FIX_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+              ]
+            },
+            "verdict": {
+              "type": "command",
+              "writes": true,
+              "allow_no_commit": true,
+              "run": [
+                "uv",
+                "run",
+                "--no-project",
+                "python",
+                "-u",
+                "-c",
+                "from pathlib import Path\nimport json\nimport re\nimport subprocess\nimport sys\n\nlabels = ['All valid blocking and non-blocking review findings resolved', 'Documentation checkpoints complete', 'Ready to finalize review/walkthrough docs']\nreport = Path('REVIEW_FIX_VERIFICATION.md')\nresult = subprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", str(report), *labels], capture_output=True, text=True)\nprint(result.stdout, end=\"\", flush=True)\nprint(result.stderr, end=\"\", flush=True)\nready = result.returncode == 0\nproduction_fixes_required = False\ncheckpoint = {\"ready\": ready, \"production_fixes_required\": production_fixes_required}\nPath('REVIEW_CHECKPOINT.json').write_text(json.dumps(checkpoint, indent=2) + \"\\n\", encoding=\"utf-8\")\nprint(\"Checkpoint\", json.dumps(checkpoint), flush=True)\n"
+              ],
+              "needs": [
+                "verify_fixes_artifacts"
+              ],
+              "outputs": {
+                "ready": {
+                  "json_path": {
+                    "artifact": "REVIEW_CHECKPOINT.json",
+                    "path": "ready"
+                  }
+                },
+                "production_fixes_required": {
+                  "json_path": {
+                    "artifact": "REVIEW_CHECKPOINT.json",
+                    "path": "production_fixes_required"
+                  }
+                }
+              }
+            },
+            "review_feedback": {
+              "type": "agent",
+              "writes": true,
+              "allow_no_commit": true,
+              "agents": [
+                "claude"
+              ],
+              "model": "opus",
+              "permission_profile": "interactive",
+              "prompts": [
+                {
+                  "local": "prompts/source/04_opus_review_branch.md"
+                },
+                {
+                  "local": "prompts/handoffs/automation.txt"
+                },
+                {
+                  "local": "prompts/handoffs/site-protection.txt"
+                }
+              ],
+              "outputs": {
+                "review": {
+                  "label": {
+                    "artifact": "REVIEW.md",
+                    "label": "Created by"
+                  }
+                },
+                "walkthrough": {
+                  "label": {
+                    "artifact": "WALKTHROUGH.md",
+                    "label": "Created by"
+                  }
+                },
+                "review_fix_prompt": {
+                  "label": {
+                    "artifact": "REVIEW_FIX_PROMPT.md",
+                    "label": "Created by"
+                  }
+                }
+              },
+              "needs": [
+                "verdict"
+              ],
+              "agent_options": {
+                "claude": {
+                  "effort": "max",
+                  "permission_mode": "bypassPermissions"
+                }
+              },
+              "timeout": "90m",
+              "if": "${{ not needs.verdict.outputs.ready }}"
+            },
+            "review_feedback_artifacts": {
+              "type": "command",
+              "needs": [
+                "review_feedback",
+                "verdict"
+              ],
+              "writes": true,
+              "allow_no_commit": true,
+              "run": [
+                "uv",
+                "run",
+                "--no-project",
+                "python",
+                "-c",
+                "from pathlib import Path; import sys; paths=['REVIEW.md', 'WALKTHROUGH.md', 'REVIEW_FIX_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
+              ],
+              "if": "${{ not needs.verdict.outputs.ready }}"
+            }
+          },
+          "if": "${{ needs.audit_verdict.outputs.production_fixes_required }}"
+        },
+        "production_exhausted": {
+          "type": "command",
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            "-u",
+            "-c",
+            "raise SystemExit(\"Production repairs exhausted; retained evidence still reports failures.\")\n"
+          ],
+          "needs": [
+            "production_repair"
+          ]
+        },
+        "production_checkpoint": {
+          "type": "command",
+          "needs": [
+            "production_repair",
+            "audit_verdict"
+          ],
+          "writes": true,
+          "allow_no_commit": true,
+          "run": [
+            "uv",
+            "run",
+            "--no-project",
+            "python",
+            ".relay/scripts/verify-verdict.py",
+            "REVIEW_FIX_VERIFICATION.md",
+            "All valid blocking and non-blocking review findings resolved",
+            "Documentation checkpoints complete",
+            "Ready to finalize review/walkthrough docs"
+          ],
+          "if": "${{ needs.audit_verdict.outputs.production_fixes_required }}"
+        },
+        "production_refresh": {
+          "type": "agent",
+          "writes": true,
+          "allow_no_commit": true,
+          "agents": [
+            "claude"
+          ],
+          "model": "opus",
+          "permission_profile": "interactive",
+          "prompts": [
+            {
+              "local": "prompts/source/06_opus_refresh_review_and_walkthrough.md"
+            },
+            {
+              "local": "prompts/handoffs/automation.txt"
+            },
+            {
+              "local": "prompts/handoffs/site-protection.txt"
+            }
+          ],
+          "outputs": {
+            "review": {
+              "label": {
+                "artifact": "REVIEW.md",
+                "label": "Created by"
+              }
+            },
+            "walkthrough": {
+              "label": {
+                "artifact": "WALKTHROUGH.md",
+                "label": "Created by"
+              }
+            }
+          },
+          "needs": [
+            "production_checkpoint",
+            "audit_verdict"
+          ],
+          "agent_options": {
+            "claude": {
+              "effort": "max",
+              "permission_mode": "bypassPermissions"
+            }
+          },
+          "timeout": "90m",
+          "if": "${{ needs.audit_verdict.outputs.production_fixes_required }}"
+        }
+      }
+    },
+    "tests_exhausted": {
+      "type": "command",
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-u",
+        "-c",
+        "raise SystemExit(\"Test/audit repairs exhausted; retained evidence does not pass.\")\n"
+      ],
+      "needs": [
+        "testing"
+      ]
+    },
+    "complete": {
+      "type": "command",
+      "needs": [
+        "testing"
+      ],
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-u",
+        "-c",
+        "from pathlib import Path\nimport re\nimport subprocess\nimport sys\n\nlabels = (\"All audit findings resolved\", \"Documentation checkpoints complete\", \"Ready to complete workflow\")\nsubprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", \"TEST_AUDIT.md\", *labels], check=True)\ntext = Path(\"TEST_AUDIT.md\").read_text(encoding=\"utf-8\")\nsections = re.split(r\"(?m)^#{1,6}[ \\t]+\", text)\n# \"## Blocking Issues\\nNone.\" passes; \"## Blocking Issues\\n- A finding\" fails.\nfor heading in (\"Blocking Issues\", \"Non-Blocking Issues\"):\n    bodies = [body.strip() for section in sections for title, separator, body in [section.partition(\"\\n\")] if separator and title.strip() == heading]\n    if bodies != [\"None.\"]:\n        raise SystemExit(\"Audit is incomplete or still contains findings under \" + heading + \".\")\nprint(\"Independent test audit passed; documentation checks passed; no human approval required.\")\n"
+      ]
+    }
+  }
+}
