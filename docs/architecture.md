@@ -7,12 +7,14 @@ templates. Titles and URLs are assigned with `textContent`. Site icons use Chrom
 state live only while the popup is open. [Protected sites](#site-protection) persist in
 `chrome.storage.local`.
 
-The header, search, bulk actions, and status remain fixed around one scrolling tab list. The
+The header, search, bulk actions, status, and footer protection note remain fixed around one
+scrolling tab list. The **Protected sites** disclosure sits at the top of that list. The
 selected-tabs button is enabled when an eligible highlighted tab exists in the popup's window.
 Group and window chevrons collapse sections in the popup. Search temporarily expands matching
 sections and restores the previous collapsed state when cleared.
 
-Rows, groups, and windows are retained by Chrome ID. Rendering counts membership and eligibility
+Rows, groups, and windows are retained by Chrome ID; protected-site entries are kept by hostname.
+Rendering counts membership and eligibility
 once, updates changed text/buttons, and inserts, moves, or removes only the affected DOM elements.
 Filtered rows remain cached until their tabs close, preserving their icons when search is cleared.
 Tab metadata events update the corresponding record directly and coalesce rendering over 16 ms.
@@ -96,6 +98,16 @@ local files can continue if the list becomes unknown after the initial read. If 
 changes after discard, that tab fails and keeps its original address. Chrome cannot undo the
 discard; selecting the tab reloads it. A navigation already dispatched may finish. Individual
 requests never read or check the list, and at most four suspensions run at once.
+
+The popup reads the saved list and listens for its changes directly. Read versions let the newest
+read win over older reads or replies. Protection changes render from memory without querying
+tabs and are handled even while a suspension request is busy. Each web-page shield exposes its
+state through `aria-pressed`. The saved-sites list is keyed by hostname and independent of search
+or open tabs. Saving uses `aria-disabled` to preserve keyboard focus; removing a focused entry
+moves focus to the next entry at its position, the last entry, or the summary when none remain.
+A focused recovery button moves focus to the summary when it becomes hidden. Bulk controls
+wait for a readable list. Read and write failures remain in the footer: **Retry** reads again,
+and **Clear saved sites** appears only for unreadable saved data.
 
 ## Permissions
 

@@ -34,6 +34,8 @@ Requires Chrome 120 or newer.
 - Click the moon beside a tab to suspend it. Search by page title, URL, or group name.
 - Collapse windows or groups with their chevrons. Search expands matching sections; clearing it restores your collapsed sections.
 - Use a group's or window's **Suspend** button, **Suspend selected tabs**, or **Suspend all windows**. **Suspend selected tabs** applies to the tabs highlighted in the popup's window (Ctrl- or Shift-click tabs to highlight several). These actions apply to the entire group, window, or selection even while searching.
+- Click the shield beside a tab to protect its site from bulk actions, and click it again to remove protection. A site is the exact hostname: `https://Docs.Example.com:8443/edit` and `http://docs.example.com/view` share `docs.example.com`, while `other.example.com` stays separate. Local files and browser pages have no shield.
+- Expand **Protected sites** at the top of the tab list to see every protected site and remove one, even after its tabs close. The list stays on this device across popup closes and browser restarts.
 - Right-click a web page, link, image, selection, or the SuspendIt toolbar icon and choose **Suspend this tab** or **Suspend selected tabs**. Chrome 150 and newer also show both in the tab strip's right-click menu. With two items, Chrome groups them under **SuspendIt** in page and tab-strip menus.
 - Select a suspended tab and click **Resume page**, or click its title in the popup, to load the original page again.
 
@@ -58,12 +60,16 @@ Changing protection never reloads or resumes a suspended tab. Chrome cannot undo
 so a tab whose site becomes protected while a bulk action is unloading it keeps its address,
 reloads when selected, and counts as failed.
 
+If SuspendIt cannot read or save protected sites, bulk actions pause and the popup footer
+explains why. **Retry** reads the list again; **Clear saved sites** appears when the saved list
+is unreadable. Individual suspension and Resume keep working.
+
 ## Project structure
 
 | Path | Purpose |
 | --- | --- |
 | `entrypoints/background/` | Native discard requests, context menus, and saved site protection |
-| `entrypoints/popup/` | Tab controls, written in HTML/CSS/TypeScript |
+| `entrypoints/popup/` | Tab controls and protected sites, written in HTML/CSS/TypeScript |
 | `entrypoints/suspended/` | Lightweight local placeholder and Resume button |
 | `entrypoints/shared/` | Tab and site rules, result text, theme, and reused utility functions |
 | `public/icon/` | SVG source and PNGs at 16, 19, 32, 38, 48, 96, and 128 pixels |

@@ -21,6 +21,11 @@ Protected hostnames persist in `chrome.storage.local` across popup closes, worke
 browser restarts. If they cannot be read, bulk actions suspend nothing; individual suspension
 and Resume still work. Changing protection never reloads or resumes a suspended tab.
 
+The popup shows a keyboard-accessible shield beside each web page to protect or unprotect its
+site, marks protected rows, explains that the moon button overrides protection, and lists every
+protected site with a remove button, including sites without open tabs. Site protection needs
+no options page, sync, pattern matching, or host permissions.
+
 The context menu offers **Suspend this tab** and **Suspend selected tabs** in every context covered by Chrome's `all` value and in the tab strip where Chrome supports the `tab` context. The selection is the highlighted tabs in the clicked tab's window.
 
 Selecting a saved tab shows its placeholder; its Resume button reloads the original address.

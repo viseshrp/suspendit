@@ -27,14 +27,24 @@
 				<input id="search" type="search" placeholder="Find a tab or group…" autocomplete="off" spellcheck="false" />
 			</div>
 			</div>
-			<div id="tab-list" class="tab-list" role="region" aria-label="Windows and tabs" tabindex="0">
+			<div id="tab-list" class="tab-list" role="region" aria-label="Protected sites, windows, and tabs" tabindex="0">
+				<details id="protected-sites" class="protected-sites">
+					<summary id="protected-summary"><span class="chevron" aria-hidden="true">›</span>Protected sites <span id="protected-count" class="protected-count"></span></summary>
+					<p class="protected-help">Bulk actions skip tabs on these sites. A tab's moon button still suspends it.</p>
+					<p id="protected-empty" class="protected-empty">Protected sites are unavailable.</p>
+					<ul id="protected-list" class="protected-list"></ul>
+				</details>
 				<div id="windows" class="windows"></div>
 				<p id="empty" class="empty" hidden>No matching tabs.</p>
 			</div>
 		</main>
 		<footer>
 			<p id="status" role="status" aria-live="polite">Select a suspended tab to load it again.</p>
-			<p class="protection">Bulk actions keep active, pinned, and audio tabs awake.</p>
+			<div class="protection-row">
+				<p id="protection-note" class="protection" aria-live="polite">Reading protected sites…</p>
+				<button id="protection-retry" class="protection-action" type="button" hidden>Retry</button>
+				<button id="protection-clear" class="protection-action" type="button" hidden>Clear saved sites</button>
+			</div>
 		</footer>
 		<template id="window-template">
 			<section class="window">
@@ -61,8 +71,12 @@
 					<svg class="favicon-fallback" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18C7 16 7 8 12 3Z"/></svg>
 				</span>
 				<button type="button" class="tab-link" data-action="open"><span class="tab-title"></span><span class="tab-meta"></span></button>
+				<button type="button" class="tab-protect" data-action="protect" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.1 7.5 9.5 4.4-1.4 7.5-4.9 7.5-9.5V6L12 3Z"/></svg></button>
 				<button type="button" class="tab-suspend" data-action="tab"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.2A8.5 8.5 0 0 1 10.8 3.5 8.5 8.5 0 1 0 20.5 13.2Z"/></svg></button>
 			</div>
+		</template>
+		<template id="protected-template">
+			<li class="protected-site"><span class="protected-host"></span><button type="button" class="scope-button protected-remove">Remove</button></li>
 		</template>
 		<script type="module" src="./index.ts"></script>
 	</body>
