@@ -41,16 +41,22 @@ Search and bulk controls stay visible while the tab list scrolls. Site icons com
 Live updates retain existing rows, focus, and scroll position. Browser tests cover 500 and
 1,000 tabs; see the [performance checks](docs/TESTING.md#large-tab-sessions).
 
-Bulk actions keep active tabs in every window, pinned tabs, and audio-playing tabs awake.
-An individual action can suspend a pinned or audio-playing tab. For an active tab, SuspendIt
+Bulk actions, including **Suspend selected tabs** in context menus, keep active tabs in every
+window, pinned tabs, audio-playing tabs, and tabs on protected sites awake. An individual action,
+from the moon button or **Suspend this tab**, can suspend a pinned, audio-playing, or
+protected-site tab. For an active tab, SuspendIt
 selects a nearby existing awake tab in the same window before requesting native discard.
 If no awake neighbor exists, that action is unavailable. Browser-internal pages are skipped.
 
 Suspension reloads the page when you return; unsaved in-page state can be lost. Chrome may
-refuse an individual discard. Popup results report suspended, skipped, and failed counts.
+refuse an individual discard. Popup results report suspended, skipped, and failed counts;
+tabs on protected sites count as skipped.
 Previously native-discarded tabs can be suspended again to convert them without loading their sites.
 Resume saved tabs before removing the extension.
 A failed context-menu action places **!** on the toolbar icon; hover over it for the reason.
+Changing protection never reloads or resumes a suspended tab. Chrome cannot undo a discard,
+so a tab whose site becomes protected while a bulk action is unloading it keeps its address,
+reloads when selected, and counts as failed.
 
 ## Project structure
 

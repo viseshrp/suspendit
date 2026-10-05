@@ -19,7 +19,8 @@ Tab metadata events update the corresponding record directly and coalesce render
 Structural events coalesce full queries over 75 ms. Query versions reject obsolete results, and
 newer metadata is kept when it arrives during a query. The popup releases this state when closed.
 
-The popup sends a validated scope request to the worker, which re-queries tabs, applies
+The popup sends a validated scope request to the worker, which reads protected sites for bulk
+scopes, re-queries tabs, applies
 eligibility rules, and invokes `chrome.tabs.discard(tabId)` before navigating the same tab to
 `suspended.html`. A selected-tabs request names a window; the worker queries that window's
 highlighted tabs. Discard flushes the old document from the back/forward cache. Up to four
@@ -28,15 +29,16 @@ Each result is counted separately, so one closed or refused tab does not stop a 
 The worker finishes requests independently of the popup's lifetime.
 
 Only individual suspension may change the active tab. It selects an existing awake neighbor
-in the same window. Bulk actions keep active, pinned, and audible tabs awake. Scope membership,
-including highlighting for selected tabs, and protection state are rechecked immediately before
-each action. Chrome makes the final discard decision.
+in the same window. Bulk actions keep active, pinned, and audible tabs awake and skip protected
+sites. Immediately before each action, the worker rechecks scope membership, including
+highlighting for selected tabs. It also rechecks the active, pinned, and audible safeguards and
+site protection. Chrome makes the final discard decision.
 
 The placeholder URL fragment holds the original address and title using `URLSearchParams`.
 Only HTTP, HTTPS, and file addresses are accepted. The popup decodes these values for title,
 search, hostname, and favicon display. DOM text assignments prevent titles from becoming HTML.
-After native discard, the worker checks the current address, active state, scope, and bulk
-protections again before replacing the page. A failed navigation leaves the discarded original
+After native discard, the worker checks the current address, active state, scope, bulk safeguards,
+and site protection again before replacing the page. A failed navigation leaves the discarded original
 address recoverable. Returned replacement tab IDs are followed throughout the operation.
 
 An `onUpdated` listener discards completed, inactive placeholders. Activating a saved tab loads
@@ -85,6 +87,15 @@ newer state. Change events matching its current list or its write in progress ne
 Other events invalidate the list and trigger a fresh read; their payload is never installed
 directly, so a late event cannot replace newer state. An unanswered change in either direction
 counts as protected for that site until it finishes. A restarted worker reads the saved list again.
+
+Bulk requests read the list before querying tabs; a failed or unreadable list stops the request
+before any tab changes. Each candidate checks site protection immediately before discard and
+again before placeholder navigation, with no `await` between either check and its Chrome call.
+A protected site is skipped before discard. An unknown list fails a web-page candidate;
+local files can continue if the list becomes unknown after the initial read. If protection
+changes after discard, that tab fails and keeps its original address. Chrome cannot undo the
+discard; selecting the tab reloads it. A navigation already dispatched may finish. Individual
+requests never read or check the list, and at most four suspensions run at once.
 
 ## Permissions
 

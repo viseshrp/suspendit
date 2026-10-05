@@ -10,7 +10,16 @@
 
 ## Suspension behavior
 
-Select an existing awake neighbor before individually discarding an active tab. If there is no awake neighbor in the same window, explain the limitation. Bulk actions protect active, pinned, and audible tabs. Suspending selected tabs acts on the tabs Chrome highlights in one window and is a bulk action. An explicit individual action may suspend a pinned or audible tab.
+Select an existing awake neighbor before individually discarding an active tab. If there is no awake neighbor in the same window, explain the limitation. Bulk actions keep active, pinned, and audible tabs awake. Suspending selected tabs acts on the tabs Chrome highlights in one window and is a bulk action. An explicit individual action may suspend a pinned, audible, or protected-site tab.
+
+Users can protect HTTP and HTTPS sites from bulk suspension. A site is the exact hostname from
+the standard URL parser, ignoring scheme and port: `https://Docs.Example.com:8443/edit` and
+`http://docs.example.com/view` are both `docs.example.com`, while `other.example.com` is separate.
+Local files and browser pages have no protectable site. Group, window, selected-tab, and
+all-window actions, including **Suspend selected tabs** in context menus, skip protected sites.
+Protected hostnames persist in `chrome.storage.local` across popup closes, worker restarts, and
+browser restarts. If they cannot be read, bulk actions suspend nothing; individual suspension
+and Resume still work. Changing protection never reloads or resumes a suspended tab.
 
 The context menu offers **Suspend this tab** and **Suspend selected tabs** in every context covered by Chrome's `all` value and in the tab strip where Chrome supports the `tab` context. The selection is the highlighted tabs in the clicked tab's window.
 
@@ -19,4 +28,5 @@ The popup also resumes pages. Keep the tab, window, group, and pin state. Discar
 navigation to clear the original document from the back/forward cache. Unload inactive
 placeholders too. Do not add host permissions, content scripts, or runtime frameworks.
 
-Source: [Chrome Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-discard).
+Sources: [Chrome Tabs API](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-discard),
+[Chrome Storage API](https://developer.chrome.com/docs/extensions/reference/api/storage).
