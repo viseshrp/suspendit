@@ -1,7 +1,9 @@
 import { defineBackground } from "wxt/utils/define-background";
+import { isProtectionRequest } from "../shared/protection";
 import { suspendedPage } from "../shared/suspended";
 import { isSuspendRequest, resultMessage, type SuspendRequest } from "../shared/tabs";
 import { suspendTabs } from "./suspend";
+import { changeProtection, watchProtection } from "./protection";
 
 // @types/chrome 0.1.37 lacks the tab-strip context; 0.1.43 adds TAB.
 // Remove this block when updating the lockfile to 0.1.43 or newer.
@@ -54,6 +56,7 @@ export async function suspendFromMenu(info: chrome.contextMenus.OnClickData, tab
 }
 
 export function registerListeners() {
+	watchProtection();
 	const install = () => { void createContextMenu().catch(console.error); };
 	chrome.runtime.onInstalled.addListener(install);
 	chrome.runtime.onStartup.addListener(install);
@@ -68,8 +71,12 @@ export function registerListeners() {
 		}
 	});
 	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-		if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("popup.html") || !isSuspendRequest(message)) return;
-		void suspendTabs(message).then(sendResponse);
+		if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL("popup.html")) return;
+		if (isSuspendRequest(message)) void suspendTabs(message).then(sendResponse);
+		else if (isProtectionRequest(message)) void changeProtection(message).then(sendResponse);
+		else return;
+		// Chrome 120 needs true to keep an asynchronous sendResponse channel open.
+		// https://developer.chrome.com/docs/extensions/develop/concepts/messaging#responses
 		return true;
 	});
 }

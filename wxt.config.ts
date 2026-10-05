@@ -14,7 +14,7 @@ export default defineConfig({
 		description: "Free up memory. Unload tabs, groups, or windows and keep a lightweight page to resume them when you need them.",
 		minimum_chrome_version: "120",
 		homepage_url: "https://github.com/viseshrp/suspendit",
-		permissions: ["tabs", "tabGroups", "contextMenus", "favicon"],
+		permissions: ["tabs", "tabGroups", "contextMenus", "favicon", "storage"],
 		action: { default_title: "SuspendIt", default_icon: icons },
 		icons,
 	},

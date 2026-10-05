@@ -108,5 +108,6 @@ pnpm exec playwright test performance.spec.ts
 6. Watch live memory in Chrome's Task manager for about 30 seconds after suspension. Compare
    the original renderer, not a cached tab-hovercard reading.
 
-The smoke check validates exactly two HTML pages, the existing four permissions, local icons,
+The smoke check validates exactly two HTML pages, exactly five permissions (`tabs`, `tabGroups`,
+`contextMenus`, `favicon`, and `storage`), local icons,
 no content scripts/options/localization, a 32 KiB JavaScript limit, and a 100 KiB ZIP limit.

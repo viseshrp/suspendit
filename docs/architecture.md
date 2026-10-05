@@ -4,7 +4,8 @@ WXT builds `popup.html`, `suspended.html`, and an event-driven Manifest V3 servi
 The popup reads tab/window/group metadata and renders native DOM elements cloned from HTML
 templates. Titles and URLs are assigned with `textContent`. Site icons use Chrome's built-in
 `_favicon` endpoint, with lazy loading and a local fallback. Search and collapsed-window/group
-state live only while the popup is open.
+state live only while the popup is open. [Protected sites](#site-protection) persist in
+`chrome.storage.local`.
 
 The header, search, bulk actions, and status remain fixed around one scrolling tab list. The
 selected-tabs button is enabled when an eligible highlighted tab exists in the popup's window.
@@ -57,6 +58,34 @@ reject it. A selected-tabs click targets the highlighted tabs in the clicked tab
 The locked `@types/chrome` 0.1.37 lacks `tab`, so the worker declares that enum value.
 Version 0.1.43 adds `TAB`; remove this declaration when updating the lockfile to 0.1.43 or newer.
 
+## Site protection
+
+A site is the standard URL parser's `hostname` for an HTTP or HTTPS address. Scheme and port
+do not distinguish sites: `https://Docs.Example.com:8443/edit` and `http://docs.example.com/view`
+both identify `docs.example.com`; `other.example.com` and `example.com` remain separate.
+The parser converts `faß.example` to `xn--fa-hia.example` and `[0:0::1]` to `[::1]`, and keeps
+the trailing dot in `example.com.`. Placeholder rows use their saved original address. Local
+files and browser pages have no site. Matching is exact, with no wildcards or suffix rules.
+
+The `protectedSites` key in `chrome.storage.local` holds a sorted array of unique hostnames,
+such as `["docs.example.com", "intranet.example"]`. A missing key means no protected sites;
+an unreadable value never means an empty list. Only hostnames are stored, on this device,
+without sync or network services. Removing the extension deletes the list.
+
+The worker accepts desired-state protection messages only from this extension's `popup.html`,
+checking both the sender ID and URL. It serializes writes and replies after `set()` resolves;
+a failed change does not block later changes. A request to protect an existing site or remove
+an absent site writes nothing. The `clear` action writes an empty list only if the saved value
+is unreadable when rechecked. The message listener returns `true` for an asynchronous reply
+on Chrome 120.
+
+The worker registers its storage listener before its first read and keeps validated hostnames
+in an in-memory `Set`. Callers share one read; a revision counter prevents a read from replacing
+newer state. Change events matching its current list or its write in progress need no reread.
+Other events invalidate the list and trigger a fresh read; their payload is never installed
+directly, so a late event cannot replace newer state. An unanswered change in either direction
+counts as protected for that site until it finishes. A restarted worker reads the saved list again.
+
 ## Permissions
 
 | Permission | Purpose |
@@ -65,6 +94,9 @@ Version 0.1.43 adds `TAB`; remove this declaration when updating the lockfile to
 | `tabGroups` | Read native group names and colors |
 | `contextMenus` | Add on-demand page, toolbar, and tab-strip actions |
 | `favicon` | Display site icons through Chrome's favicon service |
+| `storage` | Save protected site hostnames on this device |
+
+Chrome shows no install warning for `storage`.
 
 The extension requests no host permissions. Browser-level metadata and navigation APIs provide
 the other required operations.
@@ -73,4 +105,7 @@ Sources: [Tabs API](https://developer.chrome.com/docs/extensions/reference/api/t
 [Tab Groups API](https://developer.chrome.com/docs/extensions/reference/api/tabGroups),
 [Context Menus API](https://developer.chrome.com/docs/extensions/reference/api/contextMenus),
 [Chromium context menu schema](https://github.com/chromium/chromium/blob/main/chrome/common/extensions/api/context_menus.json),
-[Favicon service](https://developer.chrome.com/docs/extensions/how-to/ui/favicons).
+[Favicon service](https://developer.chrome.com/docs/extensions/how-to/ui/favicons),
+[Storage API](https://developer.chrome.com/docs/extensions/reference/api/storage),
+[URL hostname](https://url.spec.whatwg.org/#dom-url-hostname),
+[Permissions list](https://developer.chrome.com/docs/extensions/reference/permissions-list).

@@ -56,10 +56,10 @@ A failed context-menu action places **!** on the toolbar icon; hover over it for
 
 | Path | Purpose |
 | --- | --- |
-| `entrypoints/background/` | Native discard requests and context menus |
+| `entrypoints/background/` | Native discard requests, context menus, and saved site protection |
 | `entrypoints/popup/` | Tab controls, written in HTML/CSS/TypeScript |
 | `entrypoints/suspended/` | Lightweight local placeholder and Resume button |
-| `entrypoints/shared/` | Tab rules, result text, theme, and reused utility functions |
+| `entrypoints/shared/` | Tab and site rules, result text, theme, and reused utility functions |
 | `public/icon/` | SVG source and PNGs at 16, 19, 32, 38, 48, 96, and 128 pixels |
 | `scripts/`, `tests/`, `.github/workflows/` | Build verification, browser tests, CI and releases |
 
