@@ -33,8 +33,9 @@ pass that test.
 
 Reload the updated extension on Chrome's Extensions page, then run **Suspend this window**
 or **Suspend all windows** again. Eligible native-discarded tabs are converted to placeholders
-without first loading their sites. Active, pinned, and audio-playing tabs remain protected
-in bulk actions. Individual actions can convert pinned tabs.
+without first loading their sites. Bulk actions keep active, pinned, and audio-playing tabs
+awake and skip tabs on protected sites. Individual actions can convert pinned tabs and tabs
+on protected sites.
 
 Already-saved placeholders are skipped. Resume saved tabs before disabling, removing, or
 changing the extension's ID: Chrome needs the installed extension to open its local pages.

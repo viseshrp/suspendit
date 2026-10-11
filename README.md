@@ -34,6 +34,8 @@ Requires Chrome 120 or newer.
 - Click the moon beside a tab to suspend it. Search by page title, URL, or group name.
 - Collapse windows or groups with their chevrons. Search expands matching sections; clearing it restores your collapsed sections.
 - Use a group's or window's **Suspend** button, **Suspend selected tabs**, or **Suspend all windows**. **Suspend selected tabs** applies to the tabs highlighted in the popup's window (Ctrl- or Shift-click tabs to highlight several). These actions apply to the entire group, window, or selection even while searching.
+- Click the shield beside a tab to protect its site from bulk actions, and click it again to remove protection. A site is the exact hostname: `https://Docs.Example.com:8443/edit` and `http://docs.example.com/view` share `docs.example.com`, while `other.example.com` stays separate. Local files and browser pages have no shield.
+- Expand **Protected sites** at the top of the tab list to see every protected site and remove one, even after its tabs close. The list stays on this device across popup closes and browser restarts.
 - Right-click a web page, link, image, selection, or the SuspendIt toolbar icon and choose **Suspend this tab** or **Suspend selected tabs**. Chrome 150 and newer also show both in the tab strip's right-click menu. With two items, Chrome groups them under **SuspendIt** in page and tab-strip menus.
 - Select a suspended tab and click **Resume page**, or click its title in the popup, to load the original page again.
 
@@ -41,25 +43,38 @@ Search and bulk controls stay visible while the tab list scrolls. Site icons com
 Live updates retain existing rows, focus, and scroll position. Browser tests cover 500 and
 1,000 tabs; see the [performance checks](docs/TESTING.md#large-tab-sessions).
 
-Bulk actions keep active tabs in every window, pinned tabs, and audio-playing tabs awake.
-An individual action can suspend a pinned or audio-playing tab. For an active tab, SuspendIt
+Bulk actions, including **Suspend selected tabs** in context menus, keep active tabs in every
+window, pinned tabs, audio-playing tabs, and tabs on protected sites awake. An individual action,
+from the moon button or **Suspend this tab**, can suspend a pinned, audio-playing, or
+protected-site tab. For an active tab, SuspendIt
 selects a nearby existing awake tab in the same window before requesting native discard.
 If no awake neighbor exists, that action is unavailable. Browser-internal pages are skipped.
 
 Suspension reloads the page when you return; unsaved in-page state can be lost. Chrome may
-refuse an individual discard. Popup results report suspended, skipped, and failed counts.
+refuse an individual discard. Popup results report suspended, skipped, and failed counts;
+tabs on protected sites count as skipped.
 Previously native-discarded tabs can be suspended again to convert them without loading their sites.
 Resume saved tabs before removing the extension.
 A failed context-menu action places **!** on the toolbar icon; hover over it for the reason.
+Changing protection never reloads or resumes a suspended tab. Chrome cannot undo a discard,
+so a tab whose site becomes protected while a bulk action is unloading it keeps its address,
+reloads when selected, and counts as failed.
+
+If SuspendIt cannot read protected sites, or the saved list is unreadable, bulk actions suspend
+nothing and the popup footer explains why. If a protection change cannot be saved, the site
+keeps its previous setting. The popup reports the failure and pauses its bulk buttons until it
+reads the list again, for example after **Retry**. Context-menu bulk actions and a reopened
+popup use the last saved list. **Clear saved sites** appears when the saved list is unreadable.
+Individual suspension and Resume keep working.
 
 ## Project structure
 
 | Path | Purpose |
 | --- | --- |
-| `entrypoints/background/` | Native discard requests and context menus |
-| `entrypoints/popup/` | Tab controls, written in HTML/CSS/TypeScript |
+| `entrypoints/background/` | Native discard requests, context menus, and saved site protection |
+| `entrypoints/popup/` | Tab controls and protected sites, written in HTML/CSS/TypeScript |
 | `entrypoints/suspended/` | Lightweight local placeholder and Resume button |
-| `entrypoints/shared/` | Tab rules, result text, theme, and reused utility functions |
+| `entrypoints/shared/` | Tab and site rules, result text, theme, and reused utility functions |
 | `public/icon/` | SVG source and PNGs at 16, 19, 32, 38, 48, 96, and 128 pixels |
 | `scripts/`, `tests/`, `.github/workflows/` | Build verification, browser tests, CI and releases |
 

@@ -1,11 +1,14 @@
 import { suspendedUrl } from "../shared/suspended";
 import { awakeNeighbor, skipReason, type SuspendRequest, type SuspendResult } from "../shared/tabs";
 import { getErrorMessage, runWithConcurrency } from "../shared/utils";
+import { loadProtection, siteProtection, PROTECTION_UNAVAILABLE, PROTECTION_CHANGED } from "./protection";
 
 export async function suspendTabs(request: SuspendRequest): Promise<SuspendResult> {
 	const result: SuspendResult = { suspended: 0, skipped: 0, failed: 0, errors: [] };
 	const bulk = request.scope !== "tab";
 	try {
+		// Bulk actions start only from a readable list; individual actions never wait for it.
+		if (bulk) await loadProtection();
 		const tabs = request.scope === "tab"
 			? [await chrome.tabs.get(request.id)]
 			: await chrome.tabs.query({
@@ -32,6 +35,12 @@ export async function suspendTabs(request: SuspendRequest): Promise<SuspendResul
 					}
 					await chrome.tabs.update(neighbor.id, { active: true });
 				}
+				// No await may separate this protection check from the discard call.
+				if (bulk) {
+					const protection = siteProtection(tab);
+					if (protection === "protected") { result.skipped++; return; }
+					if (protection === "unavailable") throw new Error(PROTECTION_UNAVAILABLE);
+				}
 				// Discard first so the old document cannot survive in the back/forward cache.
 				const discarded = tab.discarded ? tab : await chrome.tabs.discard(tab.id as number);
 				if (!discarded?.discarded) throw new Error("Chrome could not suspend this tab.");
@@ -44,6 +53,9 @@ export async function suspendTabs(request: SuspendRequest): Promise<SuspendResul
 					(request.scope === "group" && current.groupId !== request.id)) {
 					throw new Error("The tab changed while suspending. Try again.");
 				}
+				// Chrome cannot undo the discard; keep its original address if protection changed.
+				// No await may separate this check from the placeholder navigation call.
+				if (bulk && siteProtection(current) !== "allowed") throw new Error(PROTECTION_CHANGED);
 				const savedUrl = suspendedUrl(tab);
 				const updated = await chrome.tabs.update(current.id as number, { url: savedUrl });
 				if ((updated?.pendingUrl ?? updated?.url) !== savedUrl) throw new Error("Chrome could not save the suspended page.");

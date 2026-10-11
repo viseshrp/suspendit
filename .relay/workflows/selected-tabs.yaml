@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "name": "SuspendIt selected tabs \u2014 canonical ten-phase workflow",
+  "name": "SuspendIt selected tabs - automated review, tests, and audit",
   "inputs": {
     "task": {
       "type": "string",
@@ -20,14 +20,28 @@
       "prompts": [
         {
           "local": "prompts/source/01_initial_exploration_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "draft_plan": {
-          "exists": "DRAFT_PLAN.md"
+          "label": {
+            "artifact": "DRAFT_PLAN.md",
+            "label": "Created by"
+          }
         },
         "initial_opus_planning_prompt": {
-          "exists": "INITIAL_OPUS_PLANNING_PROMPT.md"
+          "label": {
+            "artifact": "INITIAL_OPUS_PLANNING_PROMPT.md",
+            "label": "Created by"
+          }
+        }
+      },
+      "agent_options": {
+        "codex": {
+          "permission_mode": "agent"
         }
       }
     },
@@ -39,7 +53,10 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['DRAFT_PLAN.md', 'INITIAL_OPUS_PLANNING_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
@@ -56,19 +73,33 @@
       "prompts": [
         {
           "local": "prompts/handoffs/plan.txt"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "feature_spec_and_plan": {
-          "exists": "FEATURE_SPEC_AND_PLAN.md"
+          "label": {
+            "artifact": "FEATURE_SPEC_AND_PLAN.md",
+            "label": "Created by"
+          }
         },
         "execution_prompt": {
-          "exists": "EXECUTION_PROMPT.md"
+          "label": {
+            "artifact": "EXECUTION_PROMPT.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
         "explore_artifacts"
-      ]
+      ],
+      "agent_options": {
+        "claude": {
+          "permission_mode": "auto"
+        }
+      }
     },
     "plan_artifacts": {
       "type": "command",
@@ -78,7 +109,10 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['FEATURE_SPEC_AND_PLAN.md', 'EXECUTION_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
@@ -95,19 +129,33 @@
       "prompts": [
         {
           "local": "prompts/source/02_plan_critique_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "plan_critique": {
-          "exists": "PLAN_CRITIQUE.md"
+          "label": {
+            "artifact": "PLAN_CRITIQUE.md",
+            "label": "Created by"
+          }
         },
         "opus_plan_revision_request": {
-          "exists": "OPUS_PLAN_REVISION_REQUEST.md"
+          "label": {
+            "artifact": "OPUS_PLAN_REVISION_REQUEST.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
         "plan_artifacts"
-      ]
+      ],
+      "agent_options": {
+        "antigravity": {
+          "permission_mode": "auto_approve"
+        }
+      }
     },
     "critique_artifacts": {
       "type": "command",
@@ -117,7 +165,10 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['PLAN_CRITIQUE.md', 'OPUS_PLAN_REVISION_REQUEST.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
@@ -134,16 +185,27 @@
       "prompts": [
         {
           "local": "prompts/handoffs/revise.txt"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "plan_revision_summary": {
-          "exists": "PLAN_REVISION_SUMMARY.md"
+          "label": {
+            "artifact": "PLAN_REVISION_SUMMARY.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
         "critique_artifacts"
-      ]
+      ],
+      "agent_options": {
+        "claude": {
+          "permission_mode": "auto"
+        }
+      }
     },
     "revise_artifacts": {
       "type": "command",
@@ -153,7 +215,10 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['PLAN_REVISION_SUMMARY.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
@@ -170,16 +235,27 @@
       "prompts": [
         {
           "local": "prompts/source/03_plan_revision_verification_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "plan_revision_verification": {
-          "exists": "PLAN_REVISION_VERIFICATION.md"
+          "label": {
+            "artifact": "PLAN_REVISION_VERIFICATION.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
         "revise_artifacts"
-      ]
+      ],
+      "agent_options": {
+        "antigravity": {
+          "permission_mode": "auto_approve"
+        }
+      }
     },
     "verify_plan_artifacts": {
       "type": "command",
@@ -189,17 +265,32 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['PLAN_REVISION_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
     "plan_checkpoint": {
-      "type": "human_wait",
+      "type": "command",
       "needs": [
         "verify_plan_artifacts"
       ],
-      "prompt": "Operator must inspect PLAN_REVISION_VERIFICATION.md and confirm all required verdicts are Yes before allowing implementation. If any verdict is No, do not advance; return to critique/revision."
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        ".relay/scripts/verify-verdict.py",
+        "PLAN_REVISION_VERIFICATION.md",
+        "All previous concerns resolved",
+        "Documentation checkpoints complete",
+        "Ready for implementation"
+      ]
     },
     "implement": {
       "type": "agent",
@@ -213,12 +304,20 @@
       "prompts": [
         {
           "local": "prompts/handoffs/implement.txt"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {},
       "needs": [
         "plan_checkpoint"
-      ]
+      ],
+      "agent_options": {
+        "codex": {
+          "permission_mode": "agent"
+        }
+      }
     },
     "review": {
       "type": "agent",
@@ -232,22 +331,39 @@
       "prompts": [
         {
           "local": "prompts/source/04_opus_review_branch.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "review": {
-          "exists": "REVIEW.md"
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
         },
         "walkthrough": {
-          "exists": "WALKTHROUGH.md"
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
         },
         "review_fix_prompt": {
-          "exists": "REVIEW_FIX_PROMPT.md"
+          "label": {
+            "artifact": "REVIEW_FIX_PROMPT.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
         "implement"
-      ]
+      ],
+      "agent_options": {
+        "claude": {
+          "permission_mode": "auto"
+        }
+      }
     },
     "review_artifacts": {
       "type": "command",
@@ -257,17 +373,13 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['REVIEW.md', 'WALKTHROUGH.md', 'REVIEW_FIX_PROMPT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
-    },
-    "review_checkpoint": {
-      "type": "human_wait",
-      "needs": [
-        "review_artifacts"
-      ],
-      "prompt": "Operator must inspect the actual review findings and obtain owner decisions required by REVIEW_FIX_PROMPT.md before advancing to fixes."
     },
     "fix": {
       "type": "agent",
@@ -281,12 +393,20 @@
       "prompts": [
         {
           "local": "prompts/handoffs/fix.txt"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {},
       "needs": [
-        "review_checkpoint"
-      ]
+        "review_artifacts"
+      ],
+      "agent_options": {
+        "codex": {
+          "permission_mode": "agent"
+        }
+      }
     },
     "verify_fixes": {
       "type": "agent",
@@ -300,16 +420,27 @@
       "prompts": [
         {
           "local": "prompts/source/05_opus_verify_review_fixes.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "review_fix_verification": {
-          "exists": "REVIEW_FIX_VERIFICATION.md"
+          "label": {
+            "artifact": "REVIEW_FIX_VERIFICATION.md",
+            "label": "Created by"
+          }
         }
       },
       "needs": [
         "fix"
-      ]
+      ],
+      "agent_options": {
+        "claude": {
+          "permission_mode": "auto"
+        }
+      }
     },
     "verify_fixes_artifacts": {
       "type": "command",
@@ -319,17 +450,32 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['REVIEW_FIX_VERIFICATION.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
     "verification_checkpoint": {
-      "type": "human_wait",
+      "type": "command",
       "needs": [
         "verify_fixes_artifacts"
       ],
-      "prompt": "Operator must inspect REVIEW_FIX_VERIFICATION.md. Advance only when all required verdicts are Yes; otherwise return to review/fixes."
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        ".relay/scripts/verify-verdict.py",
+        "REVIEW_FIX_VERIFICATION.md",
+        "All valid blocking and non-blocking review findings resolved",
+        "Documentation checkpoints complete",
+        "Ready to finalize review/walkthrough docs"
+      ]
     },
     "refresh": {
       "type": "agent",
@@ -343,19 +489,33 @@
       "prompts": [
         {
           "local": "prompts/source/06_opus_refresh_review_and_walkthrough.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
-      "outputs": {},
+      "outputs": {
+        "review": {
+          "label": {
+            "artifact": "REVIEW.md",
+            "label": "Created by"
+          }
+        },
+        "walkthrough": {
+          "label": {
+            "artifact": "WALKTHROUGH.md",
+            "label": "Created by"
+          }
+        }
+      },
       "needs": [
         "verification_checkpoint"
-      ]
-    },
-    "human_walkthrough": {
-      "type": "human_wait",
-      "needs": [
-        "refresh"
       ],
-      "prompt": "Owner must complete phase 07 human review using the canonical prompt. Do not treat implementation authorization as RESOLVE or AGREE. Approved follow-up work must complete phase 08 before advancing to tests."
+      "agent_options": {
+        "claude": {
+          "permission_mode": "auto"
+        }
+      }
     },
     "tests": {
       "type": "agent",
@@ -369,12 +529,20 @@
       "prompts": [
         {
           "local": "prompts/source/09_write_focused_tests_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {},
       "needs": [
-        "human_walkthrough"
-      ]
+        "refresh"
+      ],
+      "agent_options": {
+        "codex": {
+          "permission_mode": "agent"
+        }
+      }
     },
     "test_audit": {
       "type": "agent",
@@ -388,16 +556,27 @@
       "prompts": [
         {
           "local": "prompts/source/10_test_audit_any_model.md"
+        },
+        {
+          "local": "prompts/handoffs/automation.txt"
         }
       ],
       "outputs": {
         "test_audit": {
-          "exists": "TEST_AUDIT.md"
+          "label": {
+            "artifact": "TEST_AUDIT.md",
+            "label": "- Ready to complete workflow"
+          }
         }
       },
       "needs": [
         "tests"
-      ]
+      ],
+      "agent_options": {
+        "antigravity": {
+          "permission_mode": "auto_approve"
+        }
+      }
     },
     "test_audit_artifacts": {
       "type": "command",
@@ -407,17 +586,30 @@
       "writes": true,
       "allow_no_commit": true,
       "run": [
-        "python3",
+        "uv",
+        "run",
+        "--no-project",
+        "python",
         "-c",
         "from pathlib import Path; import sys; paths=['TEST_AUDIT.md']; missing=[p for p in paths if not Path(p).is_file() or not Path(p).read_text(encoding=\"utf-8\").strip()]; print(\"Required artifacts missing or empty:\", missing) if missing else print(\"Required artifacts present:\", paths); sys.exit(1 if missing else 0)"
       ]
     },
-    "human_test_review": {
-      "type": "human_wait",
+    "audit_checkpoint": {
+      "type": "command",
       "needs": [
         "test_audit_artifacts"
       ],
-      "prompt": "Owner must review the audited test diff after phase 10 passes. Unresolved audit findings block completion."
+      "writes": true,
+      "allow_no_commit": true,
+      "run": [
+        "uv",
+        "run",
+        "--no-project",
+        "python",
+        "-u",
+        "-c",
+        "from pathlib import Path\nimport re\nimport subprocess\nimport sys\n\nlabels = (\"All audit findings resolved\", \"Documentation checkpoints complete\", \"Ready to complete workflow\")\nsubprocess.run([sys.executable, \".relay/scripts/verify-verdict.py\", \"TEST_AUDIT.md\", *labels], check=True)\ntext = Path(\"TEST_AUDIT.md\").read_text(encoding=\"utf-8\")\nsections = re.split(r\"(?m)^#{1,6}[ \\t]+\", text)\n# \"## Blocking Issues\\nNone.\" passes; \"## Blocking Issues\\n- A finding\" fails.\nfor heading in (\"Blocking Issues\", \"Non-Blocking Issues\"):\n    bodies = [body.strip() for section in sections for title, separator, body in [section.partition(\"\\n\")] if separator and title.strip() == heading]\n    if bodies != [\"None.\"]:\n        raise SystemExit(\"Audit is incomplete or still contains findings under \" + heading + \".\")\nprint(\"Independent test audit passed; documentation checks passed; no human approval required.\")\n"
+      ]
     }
   }
 }

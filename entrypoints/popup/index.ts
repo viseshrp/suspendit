@@ -1,13 +1,28 @@
+import {
+	PROTECTED_SITES_KEY, READ_FAILED, UNREADABLE_SITES, isProtectionReply, parseProtectedSites,
+	type ProtectionRequest,
+} from "../shared/protection";
 import { isSuspended, suspendedPage } from "../shared/suspended";
-import { resultMessage, skipReason, type SuspendRequest, type SuspendResult } from "../shared/tabs";
+import { resultMessage, type SuspendRequest, type SuspendResult } from "../shared/tabs";
 import { getErrorMessage } from "../shared/utils";
-import { renderWindows } from "./render";
+import { isBulkEligible, renderProtectedSites, renderWindows, type ProtectionView } from "./render";
 
 const search = document.getElementById("search") as HTMLInputElement;
 const status = document.getElementById("status") as HTMLParagraphElement;
 const suspendWindow = document.getElementById("suspend-window") as HTMLButtonElement;
 const suspendSelected = document.getElementById("suspend-selected") as HTMLButtonElement;
 const suspendAll = document.getElementById("suspend-all") as HTMLButtonElement;
+const protectionNote = document.getElementById("protection-note") as HTMLParagraphElement;
+const protectionRetry = document.getElementById("protection-retry") as HTMLButtonElement;
+const protectionClear = document.getElementById("protection-clear") as HTMLButtonElement;
+const protectedSummary = document.getElementById("protected-summary") as HTMLElement;
+const PROTECTION_NOTE = "Bulk actions keep active, pinned, audio, and protected-site tabs awake.";
+let protectedSites: Set<string> | undefined;
+let protectionProblem = "";
+let unreadableSites = false;
+let protectionVersion = 0;
+const savingSites = new Set<string>();
+let clearingSites = false;
 let tabs: chrome.tabs.Tab[] = [];
 let groups: chrome.tabGroups.TabGroup[] = [];
 let currentWindowId = -1;
@@ -30,15 +45,104 @@ function showStatus(message: string, error = false) {
 
 function render() {
 	const focusId = document.activeElement?.id;
+	const protection = protectionView();
 	const suspended = tabs.filter(isSuspended).length;
 	(document.getElementById("counts") as HTMLElement).textContent = `${tabs.length} ${tabs.length === 1 ? "tab" : "tabs"} · ${suspended} suspended`;
-	suspendWindow.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && !skipReason(tab, true));
-	suspendSelected.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && tab.highlighted && !skipReason(tab, true));
-	suspendAll.disabled = busy || !tabs.some((tab) => !skipReason(tab, true));
+	suspendWindow.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && isBulkEligible(tab, protection));
+	suspendSelected.disabled = busy || !tabs.some((tab) => tab.windowId === currentWindowId && tab.highlighted && isBulkEligible(tab, protection));
+	suspendAll.disabled = busy || !tabs.some((tab) => isBulkEligible(tab, protection));
 	const query = search.value.trim().toLowerCase();
 	renderWindows(tabs, groups, currentWindowId, query,
-		query ? searchCollapsed : collapsed, query ? searchCollapsedGroups : collapsedGroups, busy);
+		query ? searchCollapsed : collapsed, query ? searchCollapsedGroups : collapsedGroups, busy, protection);
+	renderProtection();
 	if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
+}
+
+function protectionView(): ProtectionView {
+	return { sites: protectedSites, saving: savingSites, paused: !protectedSites || protectionProblem !== "" };
+}
+
+function renderProtection() {
+	renderProtectedSites(protectionView());
+	const focus = document.activeElement;
+	const note = protectionProblem || (protectedSites ? PROTECTION_NOTE : "Reading protected sites…");
+	if (protectionNote.textContent !== note) protectionNote.textContent = note;
+	protectionNote.dataset.error = String(Boolean(protectionProblem));
+	protectionRetry.hidden = !protectionProblem;
+	protectionClear.hidden = !unreadableSites;
+	if ((focus === protectionRetry && protectionRetry.hidden) || (focus === protectionClear && protectionClear.hidden)) {
+		protectedSummary.focus({ preventScroll: true });
+	}
+}
+
+function showProtection() {
+	// Until the first tab query finishes, update only the protection UI so #counts keeps its loading text.
+	if (loaded) render();
+	else renderProtection();
+}
+
+async function readProtection() {
+	const version = ++protectionVersion;
+	try {
+		const stored = await chrome.storage.local.get(PROTECTED_SITES_KEY);
+		if (version !== protectionVersion) return;
+		protectedSites = parseProtectedSites(stored[PROTECTED_SITES_KEY]);
+		unreadableSites = protectedSites === undefined;
+		protectionProblem = unreadableSites ? `${UNREADABLE_SITES} Bulk actions are paused until you clear them.` : "";
+	} catch (error) {
+		if (version !== protectionVersion) return;
+		protectedSites = undefined;
+		unreadableSites = false;
+		protectionProblem = `${READ_FAILED} Bulk actions are paused. ${getErrorMessage(error)}`;
+	}
+	showProtection();
+}
+
+async function sendProtectionChange(request: ProtectionRequest): Promise<string> {
+	const version = protectionVersion;
+	try {
+		const reply: unknown = await chrome.runtime.sendMessage(request);
+		if (!isProtectionReply(reply)) return "Reopen the popup and try again.";
+		if (!reply.ok) return reply.error;
+		// A storage read started after this request owns the newer view.
+		if (version === protectionVersion) {
+			protectionVersion++;
+			protectedSites = new Set(reply.sites);
+			protectionProblem = "";
+			unreadableSites = false;
+		}
+		return "";
+	} catch (error) {
+		return getErrorMessage(error);
+	}
+}
+
+async function setProtection(site: string, protect: boolean) {
+	if (savingSites.has(site)) return;
+	savingSites.add(site);
+	showProtection();
+	const error = await sendProtectionChange({ type: "protection", action: protect ? "protect" : "unprotect", site });
+	savingSites.delete(site);
+	if (error) {
+		protectionProblem = protect
+			? `Could not protect ${site}. Bulk actions are paused until Retry succeeds. ${error}`
+			: `Could not remove protection for ${site}. Bulk actions are paused until Retry succeeds. ${error}`;
+	} else {
+		showStatus(protect ? `${site} is protected from bulk suspension.` : `${site} is no longer protected.`);
+	}
+	showProtection();
+}
+
+async function clearSavedSites() {
+	if (clearingSites) return;
+	clearingSites = true;
+	protectionClear.setAttribute("aria-disabled", "true");
+	const error = await sendProtectionChange({ type: "protection", action: "clear" });
+	clearingSites = false;
+	protectionClear.removeAttribute("aria-disabled");
+	if (error) protectionProblem = `Could not clear protected sites. ${error}`;
+	else showStatus("Protected sites are readable again.");
+	showProtection();
 }
 
 async function refresh() {
@@ -141,7 +245,14 @@ search.addEventListener("input", () => {
 // Reuse nufftabs' single delegated click handler for all rows and scope actions.
 document.getElementById("windows")?.addEventListener("click", (event) => {
 	const button = (event.target as Element).closest<HTMLButtonElement>("button[data-action]");
-	if (!button || button.disabled || busy) return;
+	if (!button || button.disabled) return;
+	// Shields carry data-site instead of data-id, and protection can change while a suspension runs.
+	if (button.dataset.action === "protect") {
+		const site = button.dataset.site;
+		if (site) void setProtection(site, button.getAttribute("aria-pressed") !== "true");
+		return;
+	}
+	if (busy) return;
 	const id = Number(button.dataset.id);
 	if (!Number.isInteger(id) || id < 0) return;
 	const action = button.dataset.action;
@@ -158,6 +269,18 @@ document.getElementById("windows")?.addEventListener("click", (event) => {
 		void suspend({ type: "suspend", scope: action, id });
 	}
 });
+
+document.getElementById("protected-list")?.addEventListener("click", (event) => {
+	const button = (event.target as Element).closest<HTMLButtonElement>("button[data-site]");
+	const site = button?.dataset.site;
+	if (site) void setProtection(site, false);
+});
+protectionRetry.addEventListener("click", () => { void readProtection(); });
+protectionClear.addEventListener("click", () => { void clearSavedSites(); });
+chrome.storage.local.onChanged.addListener((changes) => {
+	if (PROTECTED_SITES_KEY in changes) void readProtection();
+});
+void readProtection();
 
 chrome.tabs.onUpdated.addListener(updateTab);
 for (const event of [chrome.tabs.onCreated, chrome.tabs.onRemoved,

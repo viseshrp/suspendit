@@ -1,5 +1,12 @@
+import { tabSite } from "../shared/protection";
 import { isSuspended, suspendedPage } from "../shared/suspended";
 import { skipReason } from "../shared/tabs";
+
+export type ProtectionView = {
+	sites: ReadonlySet<string> | undefined;
+	saving: ReadonlySet<string>;
+	paused: boolean;
+};
 
 const groupColors: Record<chrome.tabGroups.TabGroup["color"], string> = {
 	grey: "#89918b", blue: "#6895d4", red: "#d47b7b", yellow: "#ba983f",
@@ -8,6 +15,14 @@ const groupColors: Record<chrome.tabGroups.TabGroup["color"], string> = {
 const rows = new Map<string, ReturnType<typeof createRow>>();
 const windows = new Map<number, { element: HTMLElement; value: string }>();
 const groupViews = new Map<number, { element: HTMLElement; value: string }>();
+const savedSites = new Map<string, { element: HTMLElement; button: HTMLButtonElement; saving?: boolean }>();
+
+export function isBulkEligible(tab: chrome.tabs.Tab, protection: ProtectionView) {
+	if (protection.paused || skipReason(tab, true)) return false;
+	const site = tabSite(tab);
+	// A site with an unanswered change counts as protected, matching the worker's hold.
+	return !site || (!protection.sites?.has(site) && !protection.saving.has(site));
+}
 
 function clone(id: string) {
 	const template = document.getElementById(id) as HTMLTemplateElement;
@@ -23,6 +38,7 @@ function createRow() {
 		title: element.querySelector(".tab-title") as HTMLElement,
 		meta: element.querySelector(".tab-meta") as HTMLElement,
 		open: element.querySelector(".tab-link") as HTMLButtonElement,
+		protect: element.querySelector(".tab-protect") as HTMLButtonElement,
 		suspend: element.querySelector(".tab-suspend") as HTMLButtonElement,
 	};
 }
@@ -31,12 +47,16 @@ function tabKey(tab: chrome.tabs.Tab) {
 	return tab.id === undefined || tab.id < 0 ? `unavailable-${tab.windowId}-${tab.index}` : String(tab.id);
 }
 
-function tabRow(tab: chrome.tabs.Tab, hasNeighbor: boolean, busy: boolean) {
+function tabRow(tab: chrome.tabs.Tab, hasNeighbor: boolean, busy: boolean, protection: ProtectionView) {
 	const key = tabKey(tab);
 	let row = rows.get(key);
 	if (!row) { row = createRow(); rows.set(key, row); }
 	const reason = skipReason(tab, false) || (tab.active && !hasNeighbor ? "Keep another tab awake in this window" : "");
-	const value = JSON.stringify([tab.title, tab.url, tab.active, tab.discarded, tab.audible, tab.pinned, tab.favIconUrl, reason, busy]);
+	const site = tabSite(tab);
+	const protectedSite = Boolean(site && protection.sites?.has(site));
+	const saving = Boolean(site && protection.saving.has(site));
+	const value = JSON.stringify([tab.title, tab.url, tab.active, tab.discarded, tab.audible, tab.pinned, tab.favIconUrl, reason, busy,
+		site, protectedSite, saving, Boolean(protection.sites), Boolean(tab.pendingUrl)]);
 	if (row.value === value) return row.element;
 	row.value = value;
 	row.element.dataset.tabId = key;
@@ -64,7 +84,8 @@ function tabRow(tab: chrome.tabs.Tab, hasNeighbor: boolean, busy: boolean) {
 	}
 	row.title.textContent = title;
 	const state = isSuspended(tab) ? "Suspended" : tab.active ? "Active" : tab.audible ? "Audio" : tab.pinned ? "Pinned" : "";
-	row.meta.textContent = `${host}${state ? ` · ${state}` : ""}`;
+	// A protected active page reads "docs.example.com · Protected · Active".
+	row.meta.textContent = `${host}${protectedSite ? " · Protected" : ""}${state ? ` · ${state}` : ""}`;
 	row.open.dataset.id = String(tab.id);
 	row.open.id = `open-${key}`;
 	row.open.title = title;
@@ -74,7 +95,23 @@ function tabRow(tab: chrome.tabs.Tab, hasNeighbor: boolean, busy: boolean) {
 	row.suspend.id = `suspend-${key}`;
 	row.suspend.setAttribute("aria-label", `Suspend ${title}`);
 	row.suspend.title = reason || (tab.active ? "Switch to a nearby awake tab and suspend this tab" : `Suspend ${title}`);
+	// "Suspend Notes" becomes "Suspend Notes (overrides site protection)"; disabled reasons stay unchanged.
+	if (protectedSite && !reason) row.suspend.title += " (overrides site protection)";
 	row.suspend.disabled = busy || Boolean(reason);
+	row.protect.hidden = !site;
+	row.protect.id = `protect-${key}`;
+	row.protect.dataset.site = site ?? "";
+	row.protect.setAttribute("aria-label", `Protect ${site ?? ""}`);
+	row.protect.setAttribute("aria-pressed", String(protectedSite));
+	row.protect.disabled = !protection.sites || Boolean(tab.pendingUrl);
+	// Keep the focused shield in the Tab order while its request is unanswered.
+	if (saving) row.protect.setAttribute("aria-disabled", "true");
+	else row.protect.removeAttribute("aria-disabled");
+	row.protect.title = tab.pendingUrl ? "Wait for this page to finish loading"
+		: !protection.sites ? "Protected sites are unavailable right now"
+		: saving ? `Saving protection for ${site}…`
+		: protectedSite ? `${site} is protected from bulk suspension. Select to remove protection.`
+		: `Protect ${site ?? ""} from bulk suspension`;
 	return row.element;
 }
 
@@ -92,6 +129,49 @@ function syncChildren(parent: HTMLElement, children: HTMLElement[]) {
 	}
 }
 
+function savedSiteRow(site: string, saving: boolean) {
+	let row = savedSites.get(site);
+	if (!row) {
+		const element = clone("protected-template");
+		(element.querySelector(".protected-host") as HTMLElement).textContent = site;
+		const button = element.querySelector(".protected-remove") as HTMLButtonElement;
+		button.id = `unprotect-${site}`;
+		button.dataset.site = site;
+		button.setAttribute("aria-label", `Remove protection for ${site}`);
+		row = { element, button };
+		savedSites.set(site, row);
+	}
+	if (row.saving !== saving) {
+		row.saving = saving;
+		row.button.title = saving ? `Saving protection for ${site}…` : `Stop protecting ${site}`;
+		if (saving) row.button.setAttribute("aria-disabled", "true");
+		else row.button.removeAttribute("aria-disabled");
+	}
+	return row.element;
+}
+
+export function renderProtectedSites(protection: ProtectionView) {
+	const list = document.getElementById("protected-list") as HTMLElement;
+	const focused = document.activeElement;
+	const focusedRow = focused?.closest(".protected-site");
+	const focusIndex = focusedRow?.parentElement === list ? Array.from(list.children).indexOf(focusedRow) : -1;
+	const sites = protection.sites ? [...protection.sites].sort() : [];
+	const children = sites.map((site) => savedSiteRow(site, protection.saving.has(site)));
+	syncChildren(list, children);
+	for (const site of savedSites.keys()) if (!protection.sites?.has(site)) savedSites.delete(site);
+	(document.getElementById("protected-count") as HTMLElement).textContent = protection.sites ? String(sites.length) : "";
+	const empty = document.getElementById("protected-empty") as HTMLElement;
+	empty.hidden = sites.length > 0;
+	empty.textContent = protection.sites
+		? "No protected sites yet. Use the shield beside a tab to protect its site."
+		: "Protected sites are unavailable.";
+	if (focusIndex >= 0 && !list.contains(focused)) {
+		// Removing an entry keeps keyboard focus at its position, then at the last entry or summary.
+		const next = children[Math.min(focusIndex, children.length - 1)]?.querySelector<HTMLButtonElement>("button");
+		(next ?? document.getElementById("protected-summary"))?.focus({ preventScroll: true });
+	}
+}
+
 export function renderWindows(
 	tabs: chrome.tabs.Tab[],
 	groups: chrome.tabGroups.TabGroup[],
@@ -100,6 +180,7 @@ export function renderWindows(
 	collapsed: Set<number>,
 	collapsedGroups: Set<number>,
 	busy: boolean,
+	protection: ProtectionView,
 ) {
 	const groupMap = new Map(groups.map((group) => [group.id, group]));
 	const byWindow = new Map<number, { tabs: chrome.tabs.Tab[]; eligible: number; awake: number }>();
@@ -111,7 +192,7 @@ export function renderWindows(
 		let window = byWindow.get(tab.windowId);
 		if (!window) { window = { tabs: [], eligible: 0, awake: 0 }; byWindow.set(tab.windowId, window); }
 		window.tabs.push(tab);
-		const eligible = Number(!skipReason(tab, true));
+		const eligible = Number(isBulkEligible(tab, protection));
 		window.eligible += eligible;
 		if (tab.id !== undefined && !isSuspended(tab) && tab.status !== "unloaded") window.awake++;
 		if (groupMap.has(tab.groupId)) {
@@ -158,7 +239,7 @@ export function renderWindows(
 		const groupRows = new Map<number, HTMLElement[]>();
 		for (const tab of visible) {
 			const ownAwake = Number(tab.id !== undefined && !isSuspended(tab) && tab.status !== "unloaded");
-			const row = tabRow(tab, window.awake > ownAwake, busy);
+			const row = tabRow(tab, window.awake > ownAwake, busy, protection);
 			const group = groupMap.get(tab.groupId);
 			if (!group) { children.push(row); continue; }
 			let members = groupRows.get(group.id);
