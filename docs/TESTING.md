@@ -18,7 +18,7 @@ out-of-order browser queries. Every production TypeScript file is included in co
 90% minimum statements, branches, functions, and lines.
 
 The Playwright suite loads the **production extension** into a fresh temporary Chrome profile.
-It exercises the real popup, every action scope, active/pinned/audio protections, original
+It exercises the real popup, individual, group, window, and all-window actions, active/pinned/audio protections, original
 web and local-file address restoration, placeholder reloads, browser restart recovery, keyboard activation,
 light/dark/narrow layouts, fixed popup controls, collapsible groups, and Chrome favicons.
 Fixture sites run on loopback. No mocked extension APIs or test entrypoints ship in the build.
@@ -96,11 +96,16 @@ pnpm exec playwright test performance.spec.ts
 2. Right-click a page and choose **Suspend this tab**. Another existing awake tab should become
    active. Selecting the suspended tab should show the yellow placeholder; **Resume page**
    should restore the original address. The popup's Resume action should work too.
-3. Restart Chrome with session restoration enabled. Check saved titles, addresses, and Resume.
+3. Ctrl-click two more ordinary tabs and a pinned tab in one window. Choose **Suspend selected
+   tabs** from the popup, a page's right-click menu, and the toolbar icon's menu. The unpinned,
+   inactive highlighted tabs suspend; the active and pinned tabs stay awake. In Chrome 150 or
+   newer, repeat from the tab strip's right-click menu, and also use **Suspend this tab** there.
+   In Chrome 120, confirm both items still appear in page and toolbar menus.
+4. Restart Chrome with session restoration enabled. Check saved titles, addresses, and Resume.
    In a single-awake-tab window, check the disabled individual action and its explanation.
-4. Scroll a long popup list. Confirm one scrollbar, fixed controls, collapsible groups, searchable
+5. Scroll a long popup list. Confirm one scrollbar, fixed controls, collapsible groups, searchable
    original titles/addresses, and recognizable site icons.
-5. Watch live memory in Chrome's Task manager for about 30 seconds after suspension. Compare
+6. Watch live memory in Chrome's Task manager for about 30 seconds after suspension. Compare
    the original renderer, not a cached tab-hovercard reading.
 
 The smoke check validates exactly two HTML pages, the existing four permissions, local icons,

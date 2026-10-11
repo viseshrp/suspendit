@@ -1,7 +1,8 @@
 import { isSuspended, pageAddress, suspendedPage } from "./suspended";
 
+// "window" and "selected" carry a window ID; "selected" means that window's highlighted tabs.
 export type SuspendRequest =
-	| { type: "suspend"; scope: "tab" | "group" | "window"; id: number }
+	| { type: "suspend"; scope: "tab" | "group" | "window" | "selected"; id: number }
 	| { type: "suspend"; scope: "all" };
 
 export type SuspendResult = {
@@ -18,7 +19,7 @@ export function isSuspendRequest(value: unknown): value is SuspendRequest {
 	return (
 		request.type === "suspend" &&
 		(request.scope === "all" ||
-			(["tab", "group", "window"].includes(request.scope ?? "") &&
+			(["tab", "group", "window", "selected"].includes(request.scope ?? "") &&
 				typeof request.id === "number" &&
 				Number.isInteger(request.id) &&
 				request.id >= 0))

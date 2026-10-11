@@ -10,16 +10,18 @@ export async function suspendTabs(request: SuspendRequest): Promise<SuspendResul
 			? [await chrome.tabs.get(request.id)]
 			: await chrome.tabs.query({
 				windowType: "normal",
-				...(request.scope === "window" ? { windowId: request.id } : {}),
+				...(request.scope === "window" || request.scope === "selected" ? { windowId: request.id } : {}),
 				...(request.scope === "group" ? { groupId: request.id } : {}),
+				...(request.scope === "selected" ? { highlighted: true } : {}),
 			});
 		await runWithConcurrency(tabs, 4, async (original) => {
 			try {
 				// Re-read immediately before each action: tabs can move, close, or start audio.
 				const tab = original.id === undefined ? original : await chrome.tabs.get(original.id);
 				if (skipReason(tab, bulk) ||
-					(request.scope === "window" && tab.windowId !== request.id) ||
-					(request.scope === "group" && tab.groupId !== request.id)) {
+					((request.scope === "window" || request.scope === "selected") && tab.windowId !== request.id) ||
+					(request.scope === "group" && tab.groupId !== request.id) ||
+					(request.scope === "selected" && !tab.highlighted)) {
 					result.skipped++;
 					return;
 				}
@@ -35,9 +37,10 @@ export async function suspendTabs(request: SuspendRequest): Promise<SuspendResul
 				if (!discarded?.discarded) throw new Error("Chrome could not suspend this tab.");
 				if (!bulk) result.tabId = discarded.id;
 				const current = await chrome.tabs.get(discarded.id as number);
+				// Selection membership was confirmed before discard; only window moves invalidate it here.
 				if (current.active || current.pendingUrl || current.url !== tab.url || !current.discarded ||
 					skipReason(current, bulk) ||
-					(request.scope === "window" && current.windowId !== request.id) ||
+					((request.scope === "window" || request.scope === "selected") && current.windowId !== request.id) ||
 					(request.scope === "group" && current.groupId !== request.id)) {
 					throw new Error("The tab changed while suspending. Try again.");
 				}
