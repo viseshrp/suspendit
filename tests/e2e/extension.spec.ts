@@ -254,6 +254,27 @@ test("site icons load through Chrome's favicon endpoint", async () => {
 	expect(new URL(src).searchParams.get("pageUrl")).toBe(`${base}/Today`);
 });
 
+test("selected-tab action preserves unselected, active, pinned, audio, and other-window tabs", async () => {
+	const first = await createTab("Selected reference");
+	const second = await createTab("Selected notes");
+	const outside = await createTab("Unselected reference");
+	const pinned = await createTab("Pinned selection", { pinned: true });
+	const audio = await createTab("Audio");
+	await expect.poll(async () => (await getTab(audio)).audible).toBe(true);
+	const other = await evaluate(worker, (url) => chrome.windows.create({ url, focused: false }), `${base}/Other-window`);
+	const otherId = other?.tabs?.[0].id;
+	if (otherId === undefined) throw new Error("Other-window fixture did not open");
+	await expect.poll(async () => (await getTab(otherId)).status).toBe("complete");
+	await evaluate(worker, async ({ windowId, ids }) => {
+		const tabs = await Promise.all(ids.map((id) => chrome.tabs.get(id)));
+		await chrome.tabs.highlight({ windowId, tabs: tabs.map((tab) => tab.index) });
+	}, { windowId, ids: [activeId, first, second, pinned, audio] });
+	await popup();
+	await click("#suspend-selected");
+	await expect.poll(() => discardState([first, second, outside, activeId, pinned, audio, otherId]))
+		.toEqual([true, true, false, false, false, false, false]);
+});
+
 test("group and current-window actions keep protected sites, active, pinned, and audio tabs awake", async () => {
 	const first = await createTab("Architecture notes");
 	const second = await createTab("API reference");

@@ -284,7 +284,7 @@ void readProtection();
 
 chrome.tabs.onUpdated.addListener(updateTab);
 for (const event of [chrome.tabs.onCreated, chrome.tabs.onRemoved,
-	chrome.tabs.onActivated, chrome.tabs.onMoved, chrome.tabs.onAttached, chrome.tabs.onDetached,
+	chrome.tabs.onActivated, chrome.tabs.onHighlighted, chrome.tabs.onMoved, chrome.tabs.onAttached, chrome.tabs.onDetached,
 	chrome.tabs.onReplaced, chrome.tabGroups.onCreated, chrome.tabGroups.onUpdated, chrome.tabGroups.onRemoved]) {
 	event.addListener(scheduleRefresh);
 }
