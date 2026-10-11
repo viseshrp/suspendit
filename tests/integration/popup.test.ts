@@ -42,6 +42,19 @@ it("shows live window/group/tab counts, search results, and collapsed windows", 
 	expect(document.querySelectorAll(".tab-row")).toHaveLength(6);
 });
 
+it("updates selected-tab availability when highlighting changes without activation", async () => {
+	await start();
+	expect(button("suspend-selected").disabled).toBe(true);
+	state.tabs[1].highlighted = true;
+	state.mock.tabs.onHighlighted.emit({ windowId: 1, tabIds: [1, 2] });
+	await vi.runAllTimersAsync();
+	expect(button("suspend-selected").disabled).toBe(false);
+	state.tabs[1].highlighted = false;
+	state.mock.tabs.onHighlighted.emit({ windowId: 1, tabIds: [1] });
+	await vi.runAllTimersAsync();
+	expect(button("suspend-selected").disabled).toBe(true);
+});
+
 it("sends individual, selected, group, window, and all-window suspension requests", async () => {
 	state.tabs[1].highlighted = true;
 	await start();

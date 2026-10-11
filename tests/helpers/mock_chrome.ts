@@ -53,7 +53,7 @@ export function createMockChrome(initial: chrome.tabs.Tab[] = []) {
 				target.discarded = true;
 				return { ...target };
 			}),
-			onCreated: event(), onUpdated: event(), onRemoved: event(), onActivated: event(),
+			onCreated: event(), onUpdated: event(), onRemoved: event(), onActivated: event(), onHighlighted: event(),
 			onMoved: event(), onAttached: event(), onDetached: event(), onReplaced: event(),
 		},
 		tabGroups: { query: vi.fn(async () => [...groups]), onCreated: event(), onUpdated: event(), onRemoved: event() },
